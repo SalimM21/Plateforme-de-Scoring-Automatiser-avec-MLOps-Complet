@@ -92,14 +92,14 @@ pip install -r requirements.txt
 # Lancer Airflow + Kafka + MLflow avec Docker Compose
 docker-compose up -d
 ```
-### 📊 KPIs Globaux
+## 📊 KPIs Globaux
 -  Adoption utilisateur > 80%
 -  Réduction temps de décision > 70%
 -  Amélioration précision prédictions > 20% vs baseline
 -  < 5% d’erreurs sur détection fraude
 -  Conformité réglementaire auditée ✅
 
-### 📚 Références
+## 📚 Références
 
 - [MLOps - Google Cloud](https://cloud.google.com/architecture/mlops-continuous-delivery-and-automation-pipelines-in-machine-learning)  
   *Guide officiel de Google pour mettre en place un pipeline MLOps complet (CI/CD, monitoring, déploiement).*
