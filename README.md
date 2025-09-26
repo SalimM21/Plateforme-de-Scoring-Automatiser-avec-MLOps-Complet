@@ -1,4 +1,4 @@
-# 🏦 Plateforme de Scoring Automatis avec MLOps Complet --> toutes en un (file rouge)
+# 🏦 Plateforme de Scoring Automatiser avec MLOps Complet --> toutes en un (file rouge)
 
 ## 📌 Contexte
 Ce projet vise à concevoir et déployer une **plateforme de scoring automatisé** capable de :
