@@ -25,6 +25,86 @@ Ce projet vise à concevoir et déployer une **plateforme de scoring automatisé
 | **Monitoring & Logging** | Prometheus, Grafana, ELK, Evidently AI | Supervision, alertes, détection drift |
 | **Ops & Sécurité** | Kubernetes, Helm, GitLab CI/ArgoCD, Vault | Déploiement, scalabilité, gestion secrets |
 
+```mermaid
+flowchart TB
+    %% ========================
+    %% 🏗️ Architecture Plateforme
+    %% ========================
+
+    %% Interface Utilisateur
+    subgraph UI["💻 Interface Utilisateur"]
+        UI1(["Chatbot (Slack/Teams/Web)<br/>Interaction et visualisation"])
+        UI2(["Dashboard (React, Grafana, Superset)<br/>Interaction et visualisation"])
+    end
+
+    %% API & Sécurité
+    subgraph API["🔐 API & Sécurité"]
+        API1(["FastAPI<br/>Point d’entrée unique"])
+        API2(["Keycloak (OAuth2/OpenID)<br/>Gestion des accès"])
+    end
+
+    %% Ingestion & Traitement
+    subgraph INGEST["⚙️ Ingestion & Traitement"]
+        ING1(["Kafka + Kafka Connect<br/>Ingestion temps réel"])
+        ING2(["Spark / Flink<br/>Traitement flux temps réel"])
+        ING3(["Airflow<br/>Orchestration batch"])
+    end
+
+    %% Stockage & Gouvernance
+    subgraph STORAGE["🗄️ Stockage & Gouvernance"]
+        STO1(["MinIO<br/>Données brutes"])
+        STO2(["PostgreSQL<br/>Métadonnées / Gouvernance"])
+        STO3(["MongoDB<br/>Transactions"])
+        STO4(["Delta Lake<br/>Historisation"])
+    end
+
+    %% Machine Learning & MLOps
+    subgraph MLOPS["🧠 Machine Learning & MLOps"]
+        ML1(["scikit-learn / TensorFlow<br/>Entraînement modèles"])
+        ML2(["MLflow<br/>Versioning et suivi"])
+        ML3(["Seldon / KFServing<br/>Déploiement modèles"])
+        ML4(["Feast (Feature Store)<br/>Gestion features"])
+    end
+
+    %% Monitoring & Logging
+    subgraph MONITORING["📈 Monitoring & Logging"]
+        MON1(["Prometheus / Grafana<br/>Supervision et alertes"])
+        MON2(["ELK<br/>Logs"])
+        MON3(["Evidently AI<br/>Détection drift"])
+    end
+
+    %% Ops & Sécurité
+    subgraph OPS["☸️ Ops & Sécurité"]
+        OPS1(["Kubernetes / Helm<br/>Déploiement & scalabilité"])
+        OPS2(["GitLab CI / ArgoCD<br/>CI/CD"])
+        OPS3(["Vault<br/>Gestion des secrets"])
+    end
+
+    %% ========================
+    %% 🔁 FLUX PRINCIPAUX (exemple)
+    %% ========================
+    UI1 --> API1
+    UI2 --> API1
+    API1 --> API2
+    API1 --> ING1
+    ING1 --> ING2
+    ING2 --> ING3
+    ING3 --> STO4
+    STO4 --> ML1
+    ML1 --> ML2
+    ML2 --> ML3
+    ML3 --> API1
+    ML4 --> ML1
+    ML1 --> MON3
+    MON3 --> MON1
+    MON1 --> OPS1
+    OPS1 --> OPS2
+    OPS2 --> OPS3
+    STO1 --> STO4
+    STO2 --> ML2
+    STO3 --> ING2
+
+```
 ---
 
 ## 🔑 Epics & Use Cases
