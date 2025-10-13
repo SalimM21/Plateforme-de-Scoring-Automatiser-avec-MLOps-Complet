@@ -38,27 +38,27 @@ flowchart TB
     end
 
     %% API & Sécurité
-    subgraph API["🔐 API & Sécurité"]
+    subgraph API["🔐 API+Sécurité"]
         API1(["FastAPI<br/>Point d’entrée unique"])
         API2(["Keycloak (OAuth2/OpenID)<br/>Gestion des accès"])
     end
 
     %% Ingestion & Traitement
-    subgraph INGEST["⚙️ Ingestion & Traitement"]
+    subgraph INGEST["⚙️ Ingestion+Traitement"]
         ING1(["Kafka + Kafka Connect<br/>Ingestion temps réel"])
         ING2(["Spark / Flink<br/>Traitement flux temps réel"])
         ING3(["Airflow<br/>Orchestration batch"])
     end
 
     %% Stockage & Gouvernance
-    subgraph STORAGE["🗄️ Stockage & Gouvernance"]
+    subgraph STORAGE["🗄️ Stockage+Gouvernance"]
         STO1(["MinIO<br/>Données brutes"])
         STO2(["PostgreSQL<br/>Métadonnées / Gouvernance"])
         STO3(["MongoDB<br/>Transactions"])
         STO4(["Delta Lake<br/>Historisation"])
     end
 
-    %% Machine Learning & MLOps
+    %% Machine Learning+MLOps
     subgraph MLOPS["🧠 Machine Learning & MLOps"]
         ML1(["scikit-learn / TensorFlow<br/>Entraînement modèles"])
         ML2(["MLflow<br/>Versioning et suivi"])
@@ -67,14 +67,14 @@ flowchart TB
     end
 
     %% Monitoring & Logging
-    subgraph MONITORING["📈 Monitoring & Logging"]
+    subgraph MONITORING["📈 Monitoring+Logging"]
         MON1(["Prometheus / Grafana<br/>Supervision et alertes"])
         MON2(["ELK<br/>Logs"])
         MON3(["Evidently AI<br/>Détection drift"])
     end
 
     %% Ops & Sécurité
-    subgraph OPS["☸️ Ops & Sécurité"]
+    subgraph OPS["☸️ Ops+Sécurité"]
         OPS1(["Kubernetes / Helm<br/>Déploiement & scalabilité"])
         OPS2(["GitLab CI / ArgoCD<br/>CI/CD"])
         OPS3(["Vault<br/>Gestion des secrets"])
