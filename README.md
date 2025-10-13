@@ -148,7 +148,7 @@ gantt
     title 🏗️ Roadmap - Plateforme de Scoring Automatisée avec MLOps
     dateFormat  YYYY-MM-DD
     section Phase 1 - Cadrage & Setup
-    📋 Spécifications fonctionnelles & techniques       :done,   p1a, 2025-01-01, 10d
+    📋 Spécifications fonctionnelles & techniques       :done,   p1a, 2025-09-01, 10d
     🧱 Mise en place de l’environnement Dev / Cloud     :active, p1b, after p1a, 4d
     🔑 Sécurisation (Keycloak / Vault)                  : p1c, after p1b, 4d
 
