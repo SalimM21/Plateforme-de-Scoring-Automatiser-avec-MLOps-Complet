@@ -17,14 +17,16 @@ Ce projet vise à concevoir et déployer une **plateforme de scoring automatisé
 
 | Couche | Composants | Rôle |
 |--------|------------|------|
-| **Interface Utilisateur** | Chatbot (Slack/Teams/Web), Dashboard (React, Grafana, Superset) | Interaction et visualisation |
-| **API & Sécurité** | FastAPI, Keycloak (OAuth2/OpenID) | Point d’entrée unique, gestion des accès |
-| **Ingestion & Traitement** | Kafka + Kafka Connect, Spark/Flink, Airflow | Ingestion temps réel, orchestration batch |
-| **Stockage & Gouvernance** | MinIO, PostgreSQL, MongoDB, Delta Lake | Données brutes, historisation, gouvernance |
-| **Machine Learning & MLOps** | scikit-learn/TensorFlow, MLflow, Seldon, KFServing, Feast (Feature Store) | Entraînement, versioning, déploiement |
-| **Monitoring & Logging** | Prometheus, Grafana, ELK, Evidently AI | Supervision, alertes, détection drift |
-| **Ops & Sécurité** | Kubernetes, Helm, GitLab CI/ArgoCD, Vault | Déploiement, scalabilité, gestion secrets |
+| [**Interface Utilisateur — Dashboard + Chatbot**](https://github.com/SalimM21/Interface-Utilisateur-Dashboard-Chatbot.git) | Chatbot (Slack/Teams/Web), Dashboard (React, Grafana, Superset) | Interaction et visualisation |
+| [**API & Sécurité**](https://github.com/SalimM21/API-Integration.git) | FastAPI, Keycloak (OAuth2/OpenID) | Point d’entrée unique, gestion des accès |
+| [**Ingestion & Traitement**](https://github.com/SalimM21/integration-CRM-KYC-du-projet-Plateforme-de-Scoring-Automatisee-MLOps.git) | Kafka + Kafka Connect, Spark/Flink, Airflow | Ingestion temps réel, orchestration batch |
+| [**Stockage & Gouvernance**](https://github.com/SalimM21/plateforme-de-scoring-fraude-chargement-vers-Snowflake.git) | MinIO, PostgreSQL, MongoDB, Delta Lake | Données brutes, historisation, gouvernance |
+| [**Machine Learning & MLOps**](https://github.com/SalimM21/Industrialisation-du-modele-de-scoring-credit.git) | scikit-learn/TensorFlow, MLflow, Seldon, KFServing, Feast (Feature Store) | Entraînement, versioning, déploiement |
+| [**Monitoring & Logging**](https://github.com/SalimM21/Monitoring-Observabilite.git) | Prometheus, Grafana, ELK, Evidently AI | Supervision, alertes, détection drift |
+| [**Ops & Sécurité**](https://github.com/SalimM21/Audit-et-conformit-GDPR-KYC-AML.git) | Kubernetes, Helm, GitLab CI/ArgoCD, Vault | Déploiement, scalabilité, gestion secrets |
 
+---
+## ♻️ Flux globale
 ```mermaid
 flowchart TB
     %% ========================
