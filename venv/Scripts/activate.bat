@@ -8,7 +8,7 @@ if defined _OLD_CODEPAGE (
     "%SystemRoot%\System32\chcp.com" 65001 > nul
 )
 
-set VIRTUAL_ENV=C:\Users\PC\Desktop\FIL rouge\Plateforme-de-Scoring-Automatis--avec-MLOps-Complet\venv
+set VIRTUAL_ENV=C:\Users\PC\Desktop\FIL rouge\integration-CRM-KYC-du-projet-Plateforme-de-Scoring-Automatisee-MLOps\venv
 
 if not defined PROMPT set PROMPT=$P$G
 
