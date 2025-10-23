@@ -1,0 +1,21 @@
+[submodule "integration-CRM-KYC"]
+	path = integration-CRM-KYC
+	url = https://github.com/SalimM21/integration-CRM-KYC-du-projet-Plateforme-de-Scoring-Automatisee-MLOps.git
+[submodule "fraude-snowflake"]
+	path = fraude-snowflake
+	url = https://github.com/SalimM21/plateforme-de-scoring-fraude-chargement-vers-Snowflake.git
+[submodule "scoring-credit"]
+	path = scoring-credit
+	url = https://github.com/SalimM21/Industrialisation-du-modele-de-scoring-credit.git
+[submodule "api-integration"]
+	path = api-integration
+	url = https://github.com/SalimM21/API-Integration.git
+[submodule "dashboard-chatbot"]
+	path = dashboard-chatbot
+	url = https://github.com/SalimM21/Interface-Utilisateur-Dashboard-Chatbot.git
+[submodule "audit-kyc-gdpr"]
+	path = audit-kyc-gdpr
+	url = https://github.com/SalimM21/Audit-et-conformit-GDPR-KYC-AML.git
+[submodule "monitoring"]
+	path = monitoring
+	url = https://github.com/SalimM21/Monitoring-Observabilite.git
