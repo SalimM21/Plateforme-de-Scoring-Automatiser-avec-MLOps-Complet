@@ -2,7 +2,7 @@
 
 ## 📌 Contexte
 Ce projet vise à concevoir et déployer une **plateforme de scoring automatisé** capable de :
-- ✅ Évaluer le **risque de crédit** (scoring prospects / candidats RH).  
+- ✅ Évaluer le **risque de crédit** (scoring prospects).  
 - 🔍 Détecter les **anomalies** et comportements atypiques dans les transactions.  
 - 🛡️ Détecter les **fraudes en temps réel** (streaming & ML).  
 - 💰 Anticiper l’approvisionnement des distributeurs automatiques (logistique).  
