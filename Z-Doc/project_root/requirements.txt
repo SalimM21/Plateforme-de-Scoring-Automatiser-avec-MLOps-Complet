@@ -1,0 +1,6 @@
+fastapi
+pandas
+numpy
+pyspark
+mlflow
+grafana-api

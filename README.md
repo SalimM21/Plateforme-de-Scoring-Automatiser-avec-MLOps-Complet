@@ -1,4 +1,4 @@
-# 🏦 Plateforme de Scoring Automatiser avec MLOps Complet --> Toutes En Un
+# 🏦 Plateforme de Scoring Automatiser avec MLOps Complet => Toutes En Un
 
 ## 📌 Contexte
 Ce projet vise à concevoir et déployer une **plateforme de scoring automatisé** capable de :
