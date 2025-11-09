@@ -1,1 +1,0 @@
-Sorry, I don't know how to set up the contents for the file `/scoring-mlops/scoring-mlops/tests/test_model.py`.
