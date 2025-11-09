@@ -3,10 +3,17 @@ Write-Host ">>> Synchronisation avancée des sous-modules..." -ForegroundColor C
 # Synchroniser la configuration des submodules
 git submodule sync --recursive
 
-# Boucle sur chaque sous-module
-$submodules = git config --file .gitmodules --get-regexp path | ForEach-Object { $_ -split ' ' } | ForEach-Object { $_[1] }
+# Récupérer correctement les chemins des sous-modules
+$submodules = git config --file .gitmodules --get-regexp path | ForEach-Object {
+    ($_ -split ' ')[1]
+}
 
 foreach ($sub in $submodules) {
+    if (-Not (Test-Path $sub)) {
+        Write-Host "⚠️ Sous-module '$sub' introuvable, skipping..." -ForegroundColor Red
+        continue
+    }
+
     Write-Host "---------------------------------------------" -ForegroundColor Gray
     Write-Host "Sous-module : $sub" -ForegroundColor Yellow
     Write-Host "---------------------------------------------" -ForegroundColor Gray
