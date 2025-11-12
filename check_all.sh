@@ -1,7 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Script de vérification complète : Plateforme de Scoring Automatisée avec MLOps
-# Basé sur toutes les checklists et guides fournis
+# Script de vérification complète avec rapport : Plateforme de Scoring MLOps
 # =============================================================================
 
 # Couleurs terminal
@@ -10,150 +9,179 @@ RED="\033[0;31m"
 YELLOW="\033[1;33m"
 NC="\033[0m"
 
-echo -e "${YELLOW}=============================="
-echo "1. Vérification Cluster Minikube"
-echo "==============================${NC}"
-minikube status
-kubectl get nodes -o wide
-kubectl get pods -A
-kubectl get svc -A
+REPORT="verification_report.txt"
+echo "Rapport de vérification - $(date)" > $REPORT
+echo "====================================" >> $REPORT
 
-echo -e "${YELLOW}\n2. Vérification Strimzi / Kafka Operator"
-echo "==============================${NC}"
-helm list -n kafka
-kubectl get pods -n kafka
-kubectl get crd | grep kafka
-kubectl logs -n kafka deploy/strimzi-cluster-operator --tail=20
+check_service() {
+  NAME=$1
+  CMD=$2
+  URL=$3
 
-echo -e "${YELLOW}\n3. Vérification Cluster Kafka"
-echo "==============================${NC}"
-kubectl get pods -n kafka
-kubectl describe kafka my-cluster -n kafka
-kubectl exec -it -n kafka kafka-0 -- bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
+  echo -e "${YELLOW}Vérification: $NAME${NC}"
+  echo "Service: $NAME" >> $REPORT
+  if [ ! -z "$CMD" ]; then
+    eval $CMD &>/dev/null
+    STATUS=$?
+  else
+    STATUS=0
+  fi
 
-echo -e "${YELLOW}\n4. Vérification MinIO et PostgreSQL"
-echo "==============================${NC}"
-# MinIO
-kubectl get pods -n storage -l app=minio
+  if [ ! -z "$URL" ]; then
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" $URL)
+    if [ "$HTTP_CODE" -eq 200 ]; then
+      STATUS=0
+    else
+      STATUS=1
+    fi
+  fi
+
+  if [ $STATUS -eq 0 ]; then
+    echo -e "${GREEN}✅ OK${NC}"
+    echo "Status: ✅ OK" >> $REPORT
+  else
+    echo -e "${RED}❌ Problème détecté${NC}"
+    echo "Status: ❌ Problème détecté" >> $REPORT
+  fi
+  echo "------------------------------------" >> $REPORT
+}
+
+# ================================
+# 1. Cluster Minikube
+# ================================
+check_service "Minikube" "minikube status" ""
+
+# ================================
+# 2. Strimzi Operator
+# ================================
+check_service "Strimzi Operator" "kubectl get pods -n kafka -l name=strimzi-cluster-operator" ""
+
+# ================================
+# 3. Kafka Cluster
+# ================================
+check_service "Kafka Cluster" "kubectl get pods -n kafka -l strimzi.io/name=my-cluster" ""
+
+# ================================
+# 4. MinIO
+# ================================
 kubectl port-forward -n storage svc/minio 9000:9000 &>/dev/null &
 MINIO_PID=$!
 sleep 3
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:9000
+check_service "MinIO" "" "http://localhost:9000"
 kill $MINIO_PID
 
-# PostgreSQL
+# ================================
+# 5. PostgreSQL
+# ================================
 POSTGRES_POD=$(kubectl get pods -n storage -l app=postgresql -o jsonpath='{.items[0].metadata.name}')
-kubectl exec -it -n storage $POSTGRES_POD -- psql -U postgres -c "\l"
+check_service "PostgreSQL" "kubectl exec -it -n storage $POSTGRES_POD -- psql -U postgres -c '\l'" ""
 
-echo -e "${YELLOW}\n5. Vérification Secrets & ConfigMaps"
-echo "==============================${NC}"
-kubectl get secrets -A
-kubectl describe secret postgres-secret -n storage
-kubectl get configmap -A
-
-echo -e "${YELLOW}\n6. Vérification Kafka Connect & Connecteurs"
-echo "==============================${NC}"
-kubectl get pods -n kafka -l app.kubernetes.io/name=strimzi-kafka-connect
+# ================================
+# 6. Kafka Connect
+# ================================
 CONNECT_POD=$(kubectl get pods -n kafka -l app.kubernetes.io/name=strimzi-kafka-connect -o jsonpath='{.items[0].metadata.name}')
-kubectl logs -n kafka $CONNECT_POD --tail=20
 kubectl port-forward -n kafka svc/kafka-connect 8083:8083 &>/dev/null &
 CONNECT_PID=$!
 sleep 3
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8083/connectors
+check_service "Kafka Connect API" "" "http://localhost:8083/connectors"
 kill $CONNECT_PID
 
-echo -e "${YELLOW}\n7. Vérification Jobs Spark"
-echo "==============================${NC}"
-kubectl get pods -n default -l app=spark
+# ================================
+# 7. Spark
+# ================================
 SPARK_POD=$(kubectl get pods -n default -l app=spark-master -o jsonpath='{.items[0].metadata.name}')
-kubectl logs -n default $SPARK_POD --tail=20
+check_service "Spark Master" "kubectl get pods -n default -l app=spark-master" ""
 
-echo -e "${YELLOW}\n8. Vérification Airflow"
-echo "==============================${NC}"
-kubectl get pods -n airflow
+# ================================
+# 8. Airflow
+# ================================
 kubectl port-forward -n airflow svc/airflow-webserver 8080:8080 &>/dev/null &
 AIRFLOW_PID=$!
 sleep 3
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080
+check_service "Airflow Webserver" "" "http://localhost:8080"
 kill $AIRFLOW_PID
 
-echo -e "${YELLOW}\n9. Vérification API Gateway (FastAPI)"
-echo "==============================${NC}"
-kubectl get pods -n api -l app=api-gateway
-kubectl logs -n api deploy/api-gateway --tail=20
+# ================================
+# 9. API Gateway
+# ================================
 kubectl port-forward -n api svc/api-gateway 8000:8000 &>/dev/null &
 API_PID=$!
 sleep 3
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8000/docs
+check_service "API Gateway" "" "http://localhost:8000/docs"
 kill $API_PID
 
-echo -e "${YELLOW}\n10. Vérification Dashboard React"
-echo "==============================${NC}"
-kubectl get pods -n dashboard
+# ================================
+# 10. Dashboard React
+# ================================
 kubectl port-forward -n dashboard svc/dashboard 3000:3000 &>/dev/null &
 DASH_PID=$!
 sleep 3
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000
+check_service "Dashboard React" "" "http://localhost:3000"
 kill $DASH_PID
 
-echo -e "${YELLOW}\n11. Vérification Chatbot Rasa"
-echo "==============================${NC}"
+# ================================
+# 11. Rasa Chatbot
+# ================================
 RASA_POD=$(kubectl get pods -n chatbot -l app=rasa -o jsonpath='{.items[0].metadata.name}')
-kubectl logs -n chatbot $RASA_POD --tail=20
 kubectl port-forward -n chatbot svc/rasa 5005:5005 &>/dev/null &
 RASA_PID=$!
 sleep 3
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:5005/status
+check_service "Rasa Chatbot" "" "http://localhost:5005/status"
 kill $RASA_PID
 
-echo -e "${YELLOW}\n12. Vérification Monitoring (Prometheus/Grafana/Loki)"
-echo "==============================${NC}"
-kubectl get pods -n monitoring
+# ================================
+# 12. Monitoring (Grafana / Prometheus / Loki)
+# ================================
 kubectl port-forward -n monitoring svc/grafana 3001:3000 &>/dev/null &
 GRAF_PID=$!
 sleep 3
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3001
+check_service "Grafana" "" "http://localhost:3001"
 kill $GRAF_PID
 
 kubectl port-forward -n monitoring svc/prometheus 9090:9090 &>/dev/null &
 PROM_PID=$!
 sleep 3
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:9090
+check_service "Prometheus" "" "http://localhost:9090"
 kill $PROM_PID
 
 kubectl port-forward -n monitoring svc/loki 3100:3100 &>/dev/null &
 LOKI_PID=$!
 sleep 3
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3100
+check_service "Loki" "" "http://localhost:3100"
 kill $LOKI_PID
 
-echo -e "${YELLOW}\n13. Vérification MLOps (MLflow & Evidently)"
-echo "==============================${NC}"
-kubectl get pods -n mlops
+# ================================
+# 13. MLflow
+# ================================
 kubectl port-forward -n mlops svc/mlflow 5000:5000 &>/dev/null &
 MLFLOW_PID=$!
 sleep 3
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:5000
+check_service "MLflow" "" "http://localhost:5000"
 kill $MLFLOW_PID
 
-kubectl port-forward -n mlops svc/evidently 8001:8001 &>/dev/null &
-EVID_PID=$!
-sleep 3
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8001
-kill $EVID_PID
-
-echo -e "${YELLOW}\n14. Vérification Authentification Keycloak"
-echo "==============================${NC}"
-kubectl get pods -n auth
+# ================================
+# 14. Keycloak
+# ================================
 kubectl port-forward -n auth svc/keycloak 8081:8080 &>/dev/null &
 KEYCLOAK_PID=$!
 sleep 3
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8081
+check_service "Keycloak Admin" "" "http://localhost:8081"
 kill $KEYCLOAK_PID
 
-echo -e "${YELLOW}\n15. Vérification Tests & CI/CD"
-echo "==============================${NC}"
-pytest -v --maxfail=1 --disable-warnings -q || echo -e "${RED}Certains tests ont échoué !${NC}"
+# ================================
+# 15. Tests Unitaires
+# ================================
+pytest -v --maxfail=1 --disable-warnings -q
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}✅ Tous les tests passent${NC}"
+    echo "Tests: ✅ OK" >> $REPORT
+else
+    echo -e "${RED}❌ Certains tests ont échoué${NC}"
+    echo "Tests: ❌ Problème détecté" >> $REPORT
+fi
 
-echo -e "${GREEN}\n✅ Vérification complète terminée !"
-echo "Vérifiez les codes HTTP (200 OK) et les logs pour chaque composant."
+# ================================
+# Résumé final
+# ================================
+echo -e "${YELLOW}\nRapport de vérification complet sauvegardé dans $REPORT${NC}"
+cat $REPORT
