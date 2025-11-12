@@ -1,0 +1,126 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "MLOps Scoring Platform - Business Metrics",
+    "tags": ["mlops", "scoring", "business"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Daily Scoring Requests",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(scoring_requests_total[5m])",
+            "legendFormat": "Requests/min"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+      },
+      {
+        "id": 2,
+        "title": "Scoring Success Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "(scoring_requests_total - scoring_errors_total) / scoring_requests_total * 100",
+            "legendFormat": "Success Rate %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "red", "value": null },
+                { "color": "orange", "value": 95 },
+                { "color": "green", "value": 99 }
+              ]
+            },
+            "unit": "percent"
+          }
+        },
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+      },
+      {
+        "id": 3,
+        "title": "Credit Score Distribution",
+        "type": "histogram",
+        "targets": [
+          {
+            "expr": "scoring_credit_score",
+            "legendFormat": "Credit Scores"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 }
+      },
+      {
+        "id": 4,
+        "title": "Risk Level Breakdown",
+        "type": "piechart",
+        "targets": [
+          {
+            "expr": "count by (risk_level) (scoring_predictions_total)",
+            "legendFormat": "{{risk_level}}"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 }
+      },
+      {
+        "id": 5,
+        "title": "API Response Times by Endpoint",
+        "type": "barchart",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{endpoint=~\".*scoring.*\"}[5m]))",
+            "legendFormat": "{{endpoint}}"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 }
+      },
+      {
+        "id": 6,
+        "title": "Data Pipeline Health",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "kafka_topic_partitions_in_sync",
+            "legendFormat": "Kafka Partitions OK"
+          },
+          {
+            "expr": "minio_bucket_objects_total",
+            "legendFormat": "MinIO Objects"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 }
+      },
+      {
+        "id": 7,
+        "title": "Compliance Violations",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "compliance_violations_total",
+            "legendFormat": "Violations"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "red", "value": 1 }
+              ]
+            }
+          }
+        },
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 }
+      }
+    ],
+    "time": { "from": "now-24h", "to": "now" },
+    "refresh": "1m"
+  }
+}
