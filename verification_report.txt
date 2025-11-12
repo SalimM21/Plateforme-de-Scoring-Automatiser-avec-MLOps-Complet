@@ -1,0 +1,43 @@
+Rapport avancé de vérification - 11/12/2025 10:07:45
+====================================
+Service: Minikube
+Status: ✅ OK
+Service: Strimzi Operator
+Status: ✅ OK
+Derniers logs:
+2025-11-12 09:07:07 WARN  KafkaConnectAssemblyOperator:562 - Reconciliation #165(timer) KafkaConnect(kafka/my-connect-cluster): Error reconciling connector debezium-crm-source io.strimzi.operator.cluster.operator.assembly.ConnectRestException: PUT /connectors/debezium-crm-source/config returned 400 (400): org.apache.kafka.connect.errors.ConnectException: Failed to find any class that implements Connector and which name matches io.debezium.connector.postgresql.PostgresConnector, available connectors are: PluginDesc{klass=class org.apache.kafka.connect.mirror.MirrorCheckpointConnector, name='org.apache.kafka.connect.mirror.MirrorCheckpointConnector', version='4.1.0', encodedVersion=4.1.0, type=source, typeName='source', location='classpath'}, PluginDesc{klass=class org.apache.kafka.connect.mirror.MirrorHeartbeatConnector, name='org.apache.kafka.connect.mirror.MirrorHeartbeatConnector', version='4.1.0', encodedVersion=4.1.0, type=source, typeName='source', location='classpath'}, PluginDesc{klass=class org.apache.kafka.connect.mirror.MirrorSourceConnector, name='org.apache.kafka.connect.mirror.MirrorSourceConnector', version='4.1.0', encodedVersion=4.1.0, type=source, typeName='source', location='classpath'} 	at io.strimzi.operator.cluster.operator.assembly.KafkaConnectApiImpl.lambda$createOrUpdatePutRequest$1(KafkaConnectApiImpl.java:86) 	at java.base/java.util.concurrent.CompletableFuture$UniCompose.tryFire(CompletableFuture.java:1150) 	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) 	at java.base/java.util.concurrent.CompletableFuture.postFire(CompletableFuture.java:614) 	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:844) 	at java.base/java.util.concurrent.CompletableFuture$Completion.run(CompletableFuture.java:482) 	at java.base/java.lang.Thread.run(Thread.java:840) 2025-11-12 09:07:07 WARN  KafkaConnectAssemblyOperator:562 - Reconciliation #165(timer) KafkaConnect(kafka/my-connect-cluster): Error reconciling connector jdbc-sink-dwh io.strimzi.operator.cluster.operator.assembly.ConnectRestException: PUT /connectors/jdbc-sink-dwh/config returned 400 (400): org.apache.kafka.connect.errors.ConnectException: Failed to find any class that implements Connector and which name matches io.confluent.connect.jdbc.JdbcSinkConnector, available connectors are: PluginDesc{klass=class org.apache.kafka.connect.mirror.MirrorCheckpointConnector, name='org.apache.kafka.connect.mirror.MirrorCheckpointConnector', version='4.1.0', encodedVersion=4.1.0, type=source, typeName='source', location='classpath'}, PluginDesc{klass=class org.apache.kafka.connect.mirror.MirrorHeartbeatConnector, name='org.apache.kafka.connect.mirror.MirrorHeartbeatConnector', version='4.1.0', encodedVersion=4.1.0, type=source, typeName='source', location='classpath'}, PluginDesc{klass=class org.apache.kafka.connect.mirror.MirrorSourceConnector, name='org.apache.kafka.connect.mirror.MirrorSourceConnector', version='4.1.0', encodedVersion=4.1.0, type=source, typeName='source', location='classpath'} 	at io.strimzi.operator.cluster.operator.assembly.KafkaConnectApiImpl.lambda$createOrUpdatePutRequest$1(KafkaConnectApiImpl.java:86) 	at java.base/java.util.concurrent.CompletableFuture$UniCompose.tryFire(CompletableFuture.java:1150) 	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) 	at java.base/java.util.concurrent.CompletableFuture.postFire(CompletableFuture.java:614) 	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:844) 	at java.base/java.util.concurrent.CompletableFuture$Completion.run(CompletableFuture.java:482) 	at java.base/java.lang.Thread.run(Thread.java:840) 2025-11-12 09:07:07 INFO  AbstractOperator:545 - Reconciliation #165(timer) KafkaConnect(kafka/my-connect-cluster): reconciled 2025-11-12 09:07:08 INFO  AbstractOperator:545 - Reconciliation #164(timer) Kafka(kafka/my-cluster): reconciled
+------------------------------------
+Service: Kafka Cluster
+Status: ✅ OK
+Service: MinIO
+Status: ✅ OK
+Derniers logs:
+MinIO Object Storage Server Copyright: 2015-2025 MinIO, Inc. License: GNU AGPLv3 - https://www.gnu.org/licenses/agpl-3.0.html Version: RELEASE.2025-09-07T16-13-09Z (go1.24.6 linux/amd64)  API: http://10.244.0.14:9000  http://127.0.0.1:9000  WebUI: http://10.244.0.14:9001 http://127.0.0.1:9001     Docs: https://docs.min.io WARN: Detected default credentials 'minioadmin:minioadmin', we recommend that you change these values with 'MINIO_ROOT_USER' and 'MINIO_ROOT_PASSWORD' environment variables
+------------------------------------
+Service: PostgreSQL
+Status: ✅ OK
+Service: Kafka Connect
+Status: ✅ OK
+Service: Spark Master
+Status: ✅ OK
+Service: Airflow
+Status: ✅ OK
+Service: API Gateway
+Status: ✅ OK
+Service: Dashboard React
+Status: ✅ OK
+Service: Rasa Chatbot
+Status: ✅ OK
+Service: Grafana
+Status: ✅ OK
+Service: Prometheus
+Status: ✅ OK
+Service: Loki
+Status: ✅ OK
+Service: MLflow
+Status: ✅ OK
+Service: Keycloak
+Status: ✅ OK
+API Scoring Endpoint: ❌ Échec
+
+Score global de santé : 0%
