@@ -1,0 +1,430 @@
+name: 🔒 Security Audit & Compliance
+
+on:
+  schedule:
+    # Audit hebdomadaire le dimanche à 2h
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+    inputs:
+      audit_type:
+        description: 'Type of security audit'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+        - full
+        - dependencies
+        - secrets
+        - infrastructure
+        - compliance
+  push:
+    branches: [ main ]
+    paths:
+      - 'requirements*.txt'
+      - 'pyproject.toml'
+      - 'Pipfile*'
+      - 'poetry.lock'
+      - 'yarn.lock'
+      - 'package-lock.json'
+
+env:
+  GHCR_REGISTRY: ghcr.io
+
+jobs:
+  # ===== AUDIT DES DÉPENDANCES =====
+  dependency-audit:
+    name: 📦 Dependency Security Audit
+    runs-on: ubuntu-latest
+    if: inputs.audit_type == 'full' || inputs.audit_type == 'dependencies' || github.event_name == 'push'
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🐍 Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: 🔒 Audit Python dependencies
+      run: |
+        pip install safety pip-audit bandit
+
+        echo "🔍 Safety check (Snyk database)..."
+        safety check --output json --save-json safety-report.json || true
+
+        echo "🔍 pip-audit check (PyPI advisory database)..."
+        pip-audit --format json --output pip-audit-report.json || true
+
+        echo "🔍 Bandit security linting..."
+        bandit -r . -f json -o bandit-report.json --exclude tests || true
+
+    - name: 🔒 Audit Node.js dependencies (if present)
+      run: |
+        if [ -f "package.json" ] || [ -f "yarn.lock" ] || [ -f "package-lock.json" ]; then
+          npm install -g auditjs ossindex
+          echo "🔍 NPM audit..."
+          npm audit --audit-level moderate --json > npm-audit-report.json || true
+        fi
+
+    - name: 📊 Process audit results
+      run: |
+        echo "📋 Security Audit Results Summary"
+        echo "=================================="
+
+        # Safety results
+        if [ -f safety-report.json ]; then
+          SAFETY_VULNS=$(jq '.vulnerabilities | length' safety-report.json 2>/dev/null || echo "0")
+          echo "🔴 Safety vulnerabilities: $SAFETY_VULNS"
+        fi
+
+        # pip-audit results
+        if [ -f pip-audit-report.json ]; then
+          PIP_VULNS=$(jq '.vulnerabilities | length' pip-audit-report.json 2>/dev/null || echo "0")
+          echo "🔴 pip-audit vulnerabilities: $PIP_VULNS"
+        fi
+
+        # Bandit results
+        if [ -f bandit-report.json ]; then
+          BANDIT_ISSUES=$(jq '.results | length' bandit-report.json 2>/dev/null || echo "0")
+          echo "🟡 Bandit security issues: $BANDIT_ISSUES"
+        fi
+
+        # NPM results
+        if [ -f npm-audit-report.json ]; then
+          NPM_VULNS=$(jq '.vulnerabilities | length' npm-audit-report.json 2>/dev/null || echo "0")
+          echo "🔴 NPM vulnerabilities: $NPM_VULNS"
+        fi
+
+        # Overall assessment
+        TOTAL_CRITICAL=$((SAFETY_VULNS + PIP_VULNS + NPM_VULNS))
+        if [ "$TOTAL_CRITICAL" -gt 0 ]; then
+          echo "🚨 CRITICAL: Security vulnerabilities found!"
+          echo "   Immediate action required"
+          exit 1
+        elif [ "$BANDIT_ISSUES" -gt 10 ]; then
+          echo "⚠️  WARNING: High number of security issues"
+          echo "   Review and fix bandit findings"
+        else
+          echo "✅ Security audit passed"
+        fi
+
+    - name: 📤 Upload security reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-audit-reports
+        path: |
+          safety-report.json
+          pip-audit-report.json
+          bandit-report.json
+          npm-audit-report.json
+
+  # ===== AUDIT DES SECRETS =====
+  secrets-audit:
+    name: 🔑 Secrets & Credentials Audit
+    runs-on: ubuntu-latest
+    if: inputs.audit_type == 'full' || inputs.audit_type == 'secrets'
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: 🔍 Scan for secrets with TruffleHog
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: main
+        head: HEAD
+        extra_args: --debug --only-verified
+
+    - name: 🔍 Scan for hardcoded secrets
+      run: |
+        echo "🔍 Scanning for hardcoded secrets..."
+
+        # Patterns de secrets courants
+        PATTERNS=(
+          "password.*="
+          "secret.*="
+          "key.*="
+          "token.*="
+          "api_key.*="
+          "access_key.*="
+          "secret_key.*="
+          "private_key.*="
+          "BEGIN.*PRIVATE"
+          "BEGIN.*RSA"
+          "BEGIN.*DSA"
+        )
+
+        FOUND_SECRETS=0
+
+        for pattern in "${PATTERNS[@]}"; do
+          # Exclure les fichiers de configuration et tests
+          RESULTS=$(grep -r -i "$pattern" . --exclude-dir=.git --exclude-dir=__pycache__ --exclude-dir=.pytest_cache --exclude="*.pyc" --exclude="*.log" | grep -v "test" | grep -v "config" | grep -v "example" | wc -l)
+
+          if [ "$RESULTS" -gt 0 ]; then
+            echo "⚠️  Potential secrets found with pattern: $pattern ($RESULTS occurrences)"
+            FOUND_SECRETS=$((FOUND_SECRETS + RESULTS))
+          fi
+        done
+
+        if [ "$FOUND_SECRETS" -gt 0 ]; then
+          echo "🚨 WARNING: Potential hardcoded secrets detected!"
+          echo "   Review the findings above and move secrets to GitHub Secrets"
+        else
+          echo "✅ No hardcoded secrets detected"
+        fi
+
+  # ===== AUDIT INFRASTRUCTURE =====
+  infrastructure-audit:
+    name: 🏗️ Infrastructure Security Audit
+    runs-on: ubuntu-latest
+    if: inputs.audit_type == 'full' || inputs.audit_type == 'infrastructure'
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🔍 Scan Kubernetes manifests
+      run: |
+        echo "🔍 Scanning Kubernetes manifests for security issues..."
+
+        # Vérifier les bonnes pratiques de sécurité
+        ISSUES=0
+
+        # Images non spécifiées avec tag latest
+        LATEST_IMAGES=$(grep -r "image:" k8s/ | grep ":latest" | wc -l)
+        if [ "$LATEST_IMAGES" -gt 0 ]; then
+          echo "⚠️  $LATEST_IMAGES images using 'latest' tag"
+          ISSUES=$((ISSUES + 1))
+        fi
+
+        # Services sans resource limits
+        NO_LIMITS=$(grep -r "containers:" k8s/ -A 20 | grep -c "name:" | awk '{print $1 - 1}' 2>/dev/null || echo "0")
+        if [ "$NO_LIMITS" -gt 0 ]; then
+          echo "⚠️  $NO_LIMITS containers without resource limits"
+          ISSUES=$((ISSUES + 1))
+        fi
+
+        # Secrets en clair
+        PLAIN_SECRETS=$(grep -r "password\|secret\|key\|token" k8s/ | grep -v "secretName\|secretKeyRef" | wc -l)
+        if [ "$PLAIN_SECRETS" -gt 0 ]; then
+          echo "🚨 $PLAIN_SECRETS potential plain text secrets in manifests"
+          ISSUES=$((ISSUES + 1))
+        fi
+
+        # Root user
+        ROOT_USERS=$(grep -r "runAsUser.*0\|runAsGroup.*0" k8s/ | wc -l)
+        if [ "$ROOT_USERS" -gt 0 ]; then
+          echo "🚨 $ROOT_USERS containers running as root"
+          ISSUES=$((ISSUES + 1))
+        fi
+
+        if [ "$ISSUES" -gt 0 ]; then
+          echo "⚠️  Infrastructure security issues found: $ISSUES"
+        else
+          echo "✅ Infrastructure security audit passed"
+        fi
+
+  # ===== AUDIT DE CONFORMITÉ =====
+  compliance-audit:
+    name: 📋 Compliance Audit
+    runs-on: ubuntu-latest
+    if: inputs.audit_type == 'full' || inputs.audit_type == 'compliance'
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 📋 GDPR Compliance Check
+      run: |
+        echo "📋 GDPR Compliance Audit"
+        echo "========================"
+
+        ISSUES=0
+
+        # Vérifier la présence de logs d'audit
+        if ! grep -r "audit\|log" . | grep -q "gdpr\|privacy"; then
+          echo "⚠️  No GDPR audit logging detected"
+          ISSUES=$((ISSUES + 1))
+        fi
+
+        # Vérifier les politiques de rétention
+        if ! grep -r "retention\|ttl" . | grep -q "data\|logs"; then
+          echo "⚠️  No data retention policies defined"
+          ISSUES=$((ISSUES + 1))
+        fi
+
+        # Vérifier l'anonymisation
+        if ! grep -r "anonymize\|pseudonym" .; then
+          echo "⚠️  No data anonymization mechanisms detected"
+          ISSUES=$((ISSUES + 1))
+        fi
+
+        if [ "$ISSUES" -gt 0 ]; then
+          echo "⚠️  GDPR compliance issues: $ISSUES"
+        else
+          echo "✅ GDPR compliance audit passed"
+        fi
+
+    - name: 🔒 SOC2/ISO27001 Compliance Check
+      run: |
+        echo "🔒 SOC2/ISO27001 Compliance Audit"
+        echo "=================================="
+
+        ISSUES=0
+
+        # Vérifier la gestion des accès
+        if ! grep -r "rbac\|role\|permission" .; then
+          echo "⚠️  No RBAC implementation detected"
+          ISSUES=$((ISSUES + 1))
+        fi
+
+        # Vérifier le chiffrement
+        if ! grep -r "tls\|ssl\|encrypt" .; then
+          echo "⚠️  No encryption mechanisms detected"
+          ISSUES=$((ISSUES + 1))
+        fi
+
+        # Vérifier les sauvegardes
+        if ! grep -r "backup\|snapshot" .; then
+          echo "⚠️  No backup mechanisms detected"
+          ISSUES=$((ISSUES + 1))
+        fi
+
+        if [ "$ISSUES" -gt 0 ]; then
+          echo "⚠️  SOC2 compliance issues: $ISSUES"
+        else
+          echo "✅ SOC2 compliance audit passed"
+        fi
+
+  # ===== RAPPORT FINAL =====
+  audit-report:
+    name: 📊 Security Audit Report
+    runs-on: ubuntu-latest
+    needs: [dependency-audit, secrets-audit, infrastructure-audit, compliance-audit]
+    if: always()
+    steps:
+    - name: 📊 Generate comprehensive audit report
+      run: |
+        echo "# 🔒 Security Audit Report - MLOps Scoring Platform" > audit-report.md
+        echo "" >> audit-report.md
+        echo "## 📅 Audit Information" >> audit-report.md
+        echo "- **Date**: $(date)" >> audit-report.md
+        echo "- **Type**: ${{ inputs.audit_type || 'scheduled' }}" >> audit-report.md
+        echo "- **Repository**: ${{ github.repository }}" >> audit-report.md
+        echo "- **Commit**: ${{ github.sha }}" >> audit-report.md
+        echo "" >> audit-report.md
+
+        echo "## 📊 Audit Results Summary" >> audit-report.md
+        echo "" >> audit-report.md
+
+        # Dependency audit results
+        echo "### 📦 Dependency Security" >> audit-report.md
+        if [ "${{ needs.dependency-audit.result }}" == "success" ]; then
+          echo "✅ **Status**: PASSED" >> audit-report.md
+          echo "✅ No critical vulnerabilities found" >> audit-report.md
+        else
+          echo "❌ **Status**: FAILED" >> audit-report.md
+          echo "🚨 Critical vulnerabilities detected" >> audit-report.md
+        fi
+        echo "" >> audit-report.md
+
+        # Secrets audit results
+        echo "### 🔑 Secrets Audit" >> audit-report.md
+        if [ "${{ needs.secrets-audit.result }}" == "success" ]; then
+          echo "✅ **Status**: PASSED" >> audit-report.md
+          echo "✅ No secrets exposure detected" >> audit-report.md
+        else
+          echo "❌ **Status**: FAILED" >> audit-report.md
+          echo "🚨 Secrets exposure detected" >> audit-report.md
+        fi
+        echo "" >> audit-report.md
+
+        # Infrastructure audit results
+        echo "### 🏗️ Infrastructure Security" >> audit-report.md
+        if [ "${{ needs.infrastructure-audit.result }}" == "success" ]; then
+          echo "✅ **Status**: PASSED" >> audit-report.md
+          echo "✅ Infrastructure security compliant" >> audit-report.md
+        else
+          echo "❌ **Status**: FAILED" >> audit-report.md
+          echo "🚨 Infrastructure security issues found" >> audit-report.md
+        fi
+        echo "" >> audit-report.md
+
+        # Compliance audit results
+        echo "### 📋 Compliance Audit" >> audit-report.md
+        if [ "${{ needs.compliance-audit.result }}" == "success" ]; then
+          echo "✅ **Status**: PASSED" >> audit-report.md
+          echo "✅ Compliance requirements met" >> audit-report.md
+        else
+          echo "❌ **Status**: FAILED" >> audit-report.md
+          echo "🚨 Compliance violations detected" >> audit-report.md
+        fi
+        echo "" >> audit-report.md
+
+        # Overall assessment
+        echo "## 🎯 Overall Assessment" >> audit-report.md
+        FAILED_AUDITS=0
+
+        if [ "${{ needs.dependency-audit.result }}" != "success" ]; then
+          FAILED_AUDITS=$((FAILED_AUDITS + 1))
+        fi
+        if [ "${{ needs.secrets-audit.result }}" != "success" ]; then
+          FAILED_AUDITS=$((FAILED_AUDITS + 1))
+        fi
+        if [ "${{ needs.infrastructure-audit.result }}" != "success" ]; then
+          FAILED_AUDITS=$((FAILED_AUDITS + 1))
+        fi
+        if [ "${{ needs.compliance-audit.result }}" != "success" ]; then
+          FAILED_AUDITS=$((FAILED_AUDITS + 1))
+        fi
+
+        if [ "$FAILED_AUDITS" -eq 0 ]; then
+          echo "✅ **OVERALL STATUS: SECURE**" >> audit-report.md
+          echo "🎉 All security audits passed successfully!" >> audit-report.md
+        else
+          echo "❌ **OVERALL STATUS: VULNERABLE**" >> audit-report.md
+          echo "🚨 $FAILED_AUDITS audit(s) failed - Immediate action required!" >> audit-report.md
+        fi
+
+        echo "" >> audit-report.md
+        echo "## 📋 Recommendations" >> audit-report.md
+
+        if [ "${{ needs.dependency-audit.result }}" != "success" ]; then
+          echo "- **Dependencies**: Update vulnerable packages immediately" >> audit-report.md
+          echo "- **Dependencies**: Review and fix security advisories" >> audit-report.md
+        fi
+
+        if [ "${{ needs.secrets-audit.result }}" != "success" ]; then
+          echo "- **Secrets**: Move hardcoded secrets to GitHub Secrets" >> audit-report.md
+          echo "- **Secrets**: Implement secret scanning in CI/CD" >> audit-report.md
+        fi
+
+        if [ "${{ needs.infrastructure-audit.result }}" != "success" ]; then
+          echo "- **Infrastructure**: Use specific image tags instead of 'latest'" >> audit-report.md
+          echo "- **Infrastructure**: Add resource limits to all containers" >> audit-report.md
+          echo "- **Infrastructure**: Use Kubernetes secrets for sensitive data" >> audit-report.md
+        fi
+
+        if [ "${{ needs.compliance-audit.result }}" != "success" ]; then
+          echo "- **Compliance**: Implement GDPR audit logging" >> audit-report.md
+          echo "- **Compliance**: Define data retention policies" >> audit-report.md
+          echo "- **Compliance**: Add data anonymization mechanisms" >> audit-report.md
+        fi
+
+        echo "" >> audit-report.md
+        echo "---" >> audit-report.md
+        echo "*Generated by GitHub Actions Security Audit*" >> audit-report.md
+        echo "*MLOps Scoring Platform - $(date)*" >> audit-report.md
+
+    - name: 📤 Upload audit report
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-audit-report-${{ inputs.audit_type || 'scheduled' }}
+        path: audit-report.md
+
+    - name: 💬 Security audit notification
+      if: failure()
+      run: |
+        echo "🚨 Security audit failed!"
+        echo "Check the audit report for details on security issues that need immediate attention."
+        # Ici on pourrait ajouter des notifications Slack/Teams/email

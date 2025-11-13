@@ -1,0 +1,234 @@
+# Alertes de performance pour Prometheus
+# À ajouter au fichier prometheus/alerts.yml
+
+groups:
+  - name: performance_alerts
+    rules:
+      # ===== ALERTES API =====
+      - alert: HighAPIResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{method="POST",endpoint="/score"}[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: scoring-api
+        annotations:
+          summary: "Temps de réponse API élevé"
+          description: "Le temps de réponse 95th percentile de l'API de scoring dépasse 2 secondes pendant 5 minutes"
+
+      - alert: CriticalAPIResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{method="POST",endpoint="/score"}[5m])) > 5
+        for: 2m
+        labels:
+          severity: critical
+          service: scoring-api
+        annotations:
+          summary: "Temps de réponse API critique"
+          description: "Le temps de réponse 95th percentile de l'API de scoring dépasse 5 secondes"
+
+      - alert: HighAPIErrorRate
+        expr: rate(http_requests_total{status=~"[5][0-9][0-9]",method="POST",endpoint="/score"}[5m]) / rate(http_requests_total{method="POST",endpoint="/score"}[5m]) * 100 > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: scoring-api
+        annotations:
+          summary: "Taux d'erreur API élevé"
+          description: "Le taux d'erreur de l'API de scoring dépasse 5% pendant 5 minutes"
+
+      - alert: CriticalAPIErrorRate
+        expr: rate(http_requests_total{status=~"[5][0-9][0-9]",method="POST",endpoint="/score"}[5m]) / rate(http_requests_total{method="POST",endpoint="/score"}[5m]) * 100 > 10
+        for: 2m
+        labels:
+          severity: critical
+          service: scoring-api
+        annotations:
+          summary: "Taux d'erreur API critique"
+          description: "Le taux d'erreur de l'API de scoring dépasse 10%"
+
+      # ===== ALERTES FEAST =====
+      - alert: HighFeastResponseTime
+        expr: histogram_quantile(0.95, rate(feast_online_features_duration_seconds_bucket[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          service: feast
+        annotations:
+          summary: "Temps de réponse Feast élevé"
+          description: "Le temps de récupération des features Feast dépasse 500ms pendant 5 minutes"
+
+      - alert: FeastHighErrorRate
+        expr: rate(feast_online_features_errors_total[5m]) / rate(feast_online_features_total[5m]) * 100 > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: feast
+        annotations:
+          summary: "Taux d'erreur Feast élevé"
+          description: "Le taux d'erreur de Feast dépasse 5% pendant 5 minutes"
+
+      # ===== ALERTES BASE DE DONNÉES =====
+      - alert: HighDatabaseQueryTime
+        expr: histogram_quantile(0.95, rate(postgres_query_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "Temps de requête DB élevé"
+          description: "Le temps de requête PostgreSQL 95th percentile dépasse 1 seconde"
+
+      - alert: DatabaseConnectionPoolExhausted
+        expr: postgres_connection_pool_size - postgres_connection_pool_available < 5
+        for: 2m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "Pool de connexions DB épuisé"
+          description: "Moins de 5 connexions disponibles dans le pool PostgreSQL"
+
+      # ===== ALERTES KAFKA =====
+      - alert: HighKafkaConsumerLag
+        expr: kafka_consumer_lag > 1000
+        for: 5m
+        labels:
+          severity: warning
+          service: kafka
+        annotations:
+          summary: "Lag consumer Kafka élevé"
+          description: "Le lag des consumers Kafka dépasse 1000 messages"
+
+      - alert: KafkaHighErrorRate
+        expr: rate(kafka_messages_failed_total[5m]) / rate(kafka_messages_total[5m]) * 100 > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: kafka
+        annotations:
+          summary: "Taux d'erreur Kafka élevé"
+          description: "Le taux d'erreur des messages Kafka dépasse 5%"
+
+      # ===== ALERTES SYSTÈME =====
+      - alert: HighCPUUsage
+        expr: rate(container_cpu_usage_seconds_total{pod=~".*scoring.*"}[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "Utilisation CPU élevée"
+          description: "L'utilisation CPU des pods scoring dépasse 80%"
+
+      - alert: HighMemoryUsage
+        expr: container_memory_usage_bytes{pod=~".*scoring.*"} / container_spec_memory_limit_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "Utilisation mémoire élevée"
+          description: "L'utilisation mémoire des pods scoring dépasse 90% de la limite"
+
+      - alert: PodRestartingFrequently
+        expr: increase(kube_pod_container_status_restarts_total{pod=~".*scoring.*"}[10m]) > 3
+        for: 2m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "Pod redémarrant fréquemment"
+          description: "Un pod scoring a redémarré plus de 3 fois dans les 10 dernières minutes"
+
+      # ===== ALERTES BUSINESS =====
+      - alert: LowScoringThroughput
+        expr: rate(ml_model_predictions_total[5m]) < 10
+        for: 10m
+        labels:
+          severity: warning
+          service: business
+        annotations:
+          summary: "Débit de scoring faible"
+          description: "Le débit de prédictions ML est inférieur à 10 par minute"
+
+      - alert: HighScoringQueueDepth
+        expr: scoring_request_queue_depth > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: business
+        annotations:
+          summary: "File d'attente scoring longue"
+          description: "Plus de 100 requêtes de scoring en attente"
+
+      # ===== ALERTES PERFORMANCE TESTS =====
+      - alert: PerformanceTestFailed
+        expr: performance_test_success == 0
+        for: 1m
+        labels:
+          severity: warning
+          service: testing
+        annotations:
+          summary: "Test de performance échoué"
+          description: "Un test de performance automatisé a échoué"
+
+      - alert: PerformanceDegraded
+        expr: performance_baseline_comparison > 1.2
+        for: 5m
+        labels:
+          severity: warning
+          service: performance
+        annotations:
+          summary: "Performance dégradée"
+          description: "La performance actuelle est 20% inférieure à la baseline"
+
+      # ===== ALERTES CHARGE =====
+      - alert: HighConcurrentUsers
+        expr: concurrent_users > 1000
+        for: 5m
+        labels:
+          severity: info
+          service: load
+        annotations:
+          summary: "Charge élevée détectée"
+          description: "Plus de 1000 utilisateurs simultanés détectés"
+
+      - alert: SustainedHighLoad
+        expr: rate(http_requests_total[10m]) > 1000
+        for: 10m
+        labels:
+          severity: info
+          service: load
+        annotations:
+          summary: "Charge soutenue élevée"
+          description: "Plus de 1000 requêtes/minute pendant 10 minutes"
+
+      # ===== ALERTES QUALITÉ DE SERVICE =====
+      - alert: APISLAViolation
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{method="POST",endpoint="/score"}[5m])) > 3
+        for: 15m
+        labels:
+          severity: critical
+          service: sla
+        annotations:
+          summary: "Violation SLA API"
+          description: "Le SLA de 3 secondes pour l'API de scoring n'est pas respecté depuis 15 minutes"
+
+      - alert: FeastSLAViolation
+        expr: histogram_quantile(0.95, rate(feast_online_features_duration_seconds_bucket[5m])) > 0.2
+        for: 15m
+        labels:
+          severity: critical
+          service: sla
+        annotations:
+          summary: "Violation SLA Feast"
+          description: "Le SLA de 200ms pour Feast n'est pas respecté depuis 15 minutes"
+
+      - alert: DatabaseSLAViolation
+        expr: histogram_quantile(0.95, rate(postgres_query_duration_seconds_bucket[5m])) > 0.5
+        for: 15m
+        labels:
+          severity: critical
+          service: sla
+        annotations:
+          summary: "Violation SLA Base de données"
+          description: "Le SLA de 500ms pour les requêtes DB n'est pas respecté depuis 15 minutes"

@@ -1,0 +1,397 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.5">
+<hashTree>
+<TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="MLOps Scoring Platform - Performance Test" enabled="true">
+  <stringProp name="TestPlan.comments"></stringProp>
+  <boolProp name="TestPlan.functional_mode">false</boolProp>
+  <boolProp name="TestPlan.tearDown_on_shutdown">true</boolProp>
+  <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
+  <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+    <collectionProp name="Arguments.arguments">
+      <elementProp name="BASE_URL" elementType="Argument">
+        <stringProp name="Argument.name">BASE_URL</stringProp>
+        <stringProp name="Argument.value">${__P(BASE_URL,http://localhost:8000)}</stringProp>
+        <stringProp name="Argument.metadata">=</stringProp>
+      </elementProp>
+      <elementProp name="AUTH_URL" elementType="Argument">
+        <stringProp name="Argument.name">AUTH_URL</stringProp>
+        <stringProp name="Argument.value">${__P(AUTH_URL,http://localhost:8080)}</stringProp>
+        <stringProp name="Argument.metadata">=</stringProp>
+      </elementProp>
+      <elementProp name="FEAST_URL" elementType="Argument">
+        <stringProp name="Argument.name">FEAST_URL</stringProp>
+        <stringProp name="Argument.value">${__P(FEAST_URL,http://localhost:6566)}</stringProp>
+        <stringProp name="Argument.metadata">=</stringProp>
+      </elementProp>
+      <elementProp name="USERS_COUNT" elementType="Argument">
+        <stringProp name="Argument.name">USERS_COUNT</stringProp>
+        <stringProp name="Argument.value">${__P(USERS_COUNT,10)}</stringProp>
+        <stringProp name="Argument.metadata">=</stringProp>
+      </elementProp>
+    </collectionProp>
+  </elementProp>
+  <stringProp name="TestPlan.user_define_classpath"></stringProp>
+</TestPlan>
+<hashTree>
+<ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Scoring API Load Test" enabled="true">
+  <stringProp name="TestPlan.comments">Load testing for credit scoring API</stringProp>
+  <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+  <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlGui" testclass="LoopController" testname="Loop Controller" enabled="true">
+    <boolProp name="LoopController.continue_forever">false</boolProp>
+    <stringProp name="LoopController.loops">10</stringProp>
+  </elementProp>
+  <stringProp name="ThreadGroup.num_threads">${USERS_COUNT}</stringProp>
+  <stringProp name="ThreadGroup.ramp_time">30</stringProp>
+  <longProp name="ThreadGroup.start_time">1</longProp>
+  <longProp name="ThreadGroup.end_time">1</longProp>
+  <boolProp name="ThreadGroup.scheduler">false</boolProp>
+  <stringProp name="ThreadGroup.duration"></stringProp>
+  <stringProp name="ThreadGroup.delay"></stringProp>
+  <boolProp name="ThreadGroup.same_user_on_next_iteration">false</boolProp>
+</ThreadGroup>
+<hashTree>
+<HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+  <collectionProp name="HeaderManager.headers">
+    <elementProp name="" elementType="Header">
+      <stringProp name="Header.name">Content-Type</stringProp>
+      <stringProp name="Header.value">application/json</stringProp>
+    </elementProp>
+  </collectionProp>
+</HeaderManager>
+<hashTree/>
+<ConfigTestElement guiclass="HttpDefaultsGui" testclass="ConfigTestElement" testname="HTTP Request Defaults" enabled="true">
+  <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="Variables predefined for all requests" enabled="true">
+    <collectionProp name="Arguments.arguments"/>
+  </elementProp>
+  <stringProp name="HTTPSampler.domain">${__P(BASE_URL,localhost)}</stringProp>
+  <stringProp name="HTTPSampler.port">${__P(BASE_PORT,8000)}</stringProp>
+  <stringProp name="HTTPSampler.protocol">${__P(BASE_PROTOCOL,http)}</stringProp>
+  <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+  <stringProp name="HTTPSampler.path"></stringProp>
+  <stringProp name="HTTPSampler.concurrentPool">6</stringProp>
+  <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+  <stringProp name="HTTPSampler.response_timeout"></stringProp>
+</ConfigTestElement>
+<hashTree/>
+<HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Health Check" enabled="true">
+  <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="Variables predefined for Health Check" enabled="true">
+    <collectionProp name="Arguments.arguments"/>
+  </elementProp>
+  <stringProp name="HTTPSampler.domain"></stringProp>
+  <stringProp name="HTTPSampler.port"></stringProp>
+  <stringProp name="HTTPSampler.protocol"></stringProp>
+  <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+  <stringProp name="HTTPSampler.path">/health</stringProp>
+  <stringProp name="HTTPSampler.method">GET</stringProp>
+  <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+  <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+  <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+  <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+  <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+  <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+  <stringProp name="HTTPSampler.response_timeout"></stringProp>
+</HTTPSamplerProxy>
+<hashTree>
+<ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Health Check Assertion" enabled="true">
+  <collectionProp name="Asserion.test_strings">
+    <stringProp name="51818">200</stringProp>
+  </collectionProp>
+  <stringProp name="Assertion.custom_message"></stringProp>
+  <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+  <boolProp name="Assertion.assume_success">false</boolProp>
+  <intProp name="Assertion.test_type">1</intProp>
+</ResponseAssertion>
+<hashTree/>
+</hashTree>
+<HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Credit Scoring - Single" enabled="true">
+  <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="Variables predefined for Credit Scoring" enabled="true">
+    <collectionProp name="Arguments.arguments">
+      <elementProp name="customer_id" elementType="HTTPArgument">
+        <boolProp name="HTTPArgument.always_encode">false</boolProp>
+        <stringProp name="Argument.name">customer_id</stringProp>
+        <stringProp name="Argument.value">CUST${__Random(1000,9999)}</stringProp>
+        <stringProp name="Argument.metadata">=</stringProp>
+        <boolProp name="HTTPArgument.use_equals">true</boolProp>
+      </elementProp>
+      <elementProp name="features" elementType="HTTPArgument">
+        <boolProp name="HTTPArgument.always_encode">false</boolProp>
+        <stringProp name="Argument.name">features</stringProp>
+        <stringProp name="Argument.value">{"age":${__Random(18,80)},"income":${__Random(20000,100000)},"employment_years":${__Random(0,40)},"debt_ratio":${__Random(0,1)},"revolving_utilization":${__Random(0,1)}}</stringProp>
+        <stringProp name="Argument.metadata">=</stringProp>
+        <boolProp name="HTTPArgument.use_equals">true</boolProp>
+      </elementProp>
+    </collectionProp>
+  </elementProp>
+  <stringProp name="HTTPSampler.domain"></stringProp>
+  <stringProp name="HTTPSampler.port"></stringProp>
+  <stringProp name="HTTPSampler.protocol"></stringProp>
+  <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+  <stringProp name="HTTPSampler.path">/score</stringProp>
+  <stringProp name="HTTPSampler.method">POST</stringProp>
+  <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+  <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+  <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+  <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+  <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+  <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+  <stringProp name="HTTPSampler.response_timeout"></stringProp>
+</HTTPSamplerProxy>
+<hashTree>
+<ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Scoring Response Assertion" enabled="true">
+  <collectionProp name="Asserion.test_strings">
+    <stringProp name="51818">credit_score</stringProp>
+  </collectionProp>
+  <stringProp name="Assertion.custom_message">Response must contain credit_score</stringProp>
+  <stringProp name="Assertion.test_field">Assertion.response_data</stringProp>
+  <boolProp name="Assertion.assume_success">false</boolProp>
+  <intProp name="Assertion.test_type">2</intProp>
+</ResponseAssertion>
+<hashTree/>
+<DurationAssertion guiclass="DurationAssertionGui" testclass="DurationAssertion" testname="Scoring Duration Assertion" enabled="true">
+  <stringProp name="DurationAssertion.duration">2000</stringProp>
+</DurationAssertion>
+<hashTree/>
+</hashTree>
+<HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Credit Scoring - Batch" enabled="true">
+  <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="Variables predefined for Batch Scoring" enabled="true">
+    <collectionProp name="Arguments.arguments">
+      <elementProp name="customers" elementType="HTTPArgument">
+        <boolProp name="HTTPArgument.always_encode">false</boolProp>
+        <stringProp name="Argument.name">customers</stringProp>
+        <stringProp name="Argument.value">[{"customer_id":"CUST${__Random(1000,9999)}","features":{"age":${__Random(18,80)},"income":${__Random(20000,100000)}}},{"customer_id":"CUST${__Random(1000,9999)}","features":{"age":${__Random(18,80)},"income":${__Random(20000,100000)}}}]</stringProp>
+        <stringProp name="Argument.metadata">=</stringProp>
+        <boolProp name="HTTPArgument.use_equals">true</boolProp>
+      </elementProp>
+    </collectionProp>
+  </elementProp>
+  <stringProp name="HTTPSampler.domain"></stringProp>
+  <stringProp name="HTTPSampler.port"></stringProp>
+  <stringProp name="HTTPSampler.protocol"></stringProp>
+  <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+  <stringProp name="HTTPSampler.path">/score/batch</stringProp>
+  <stringProp name="HTTPSampler.method">POST</stringProp>
+  <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+  <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+  <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+  <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+  <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+  <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+  <stringProp name="HTTPSampler.response_timeout"></stringProp>
+</HTTPSamplerProxy>
+<hashTree/>
+<HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Feast Online Features" enabled="true">
+  <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="Variables predefined for Feast" enabled="true">
+    <collectionProp name="Arguments.arguments">
+      <elementProp name="features" elementType="HTTPArgument">
+        <boolProp name="HTTPArgument.always_encode">false</boolProp>
+        <stringProp name="Argument.name">features</stringProp>
+        <stringProp name="Argument.value">["customer_features:age","customer_features:income"]</stringProp>
+        <stringProp name="Argument.metadata">=</stringProp>
+        <boolProp name="HTTPArgument.use_equals">true</boolProp>
+      </elementProp>
+      <elementProp name="entities" elementType="HTTPArgument">
+        <boolProp name="HTTPArgument.always_encode">false</boolProp>
+        <stringProp name="Argument.name">entities</stringProp>
+        <stringProp name="Argument.value">[{"customer_id":"CUST${__Random(1000,9999)}"}]</stringProp>
+        <stringProp name="Argument.metadata">=</stringProp>
+        <boolProp name="HTTPArgument.use_equals">true</boolProp>
+      </elementProp>
+    </collectionProp>
+  </elementProp>
+  <stringProp name="HTTPSampler.domain">${__P(FEAST_HOST,localhost)}</stringProp>
+  <stringProp name="HTTPSampler.port">${__P(FEAST_PORT,6566)}</stringProp>
+  <stringProp name="HTTPSampler.protocol">http</stringProp>
+  <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+  <stringProp name="HTTPSampler.path">/api/v1/online-features</stringProp>
+  <stringProp name="HTTPSampler.method">POST</stringProp>
+  <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+  <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+  <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+  <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+  <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+  <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+  <stringProp name="HTTPSampler.response_timeout"></stringProp>
+</HTTPSamplerProxy>
+<hashTree/>
+<IfController guiclass="IfControllerGui" testclass="IfController" testname="Database Load Test Controller" enabled="true">
+  <stringProp name="IfController.condition">${__P(RUN_DB_TESTS,false)}</stringProp>
+  <boolProp name="IfController.evaluateAll">false</boolProp>
+  <boolProp name="IfController.useExpression">true</boolProp>
+</IfController>
+<hashTree>
+<JDBCSampler guiclass="TestBeanGUI" testclass="JDBCSampler" testname="Database Query Test" enabled="true">
+  <stringProp name="dataSource">postgres</stringProp>
+  <stringProp name="queryType">Select Statement</stringProp>
+  <stringProp name="query">SELECT COUNT(*) FROM feast.customer_features WHERE customer_id = ?</stringProp>
+  <stringProp name="queryArguments">CUST${__Random(1000,9999)}</stringProp>
+  <stringProp name="queryArgumentsTypes">VARCHAR</stringProp>
+  <stringProp name="variableNames">customer_count</stringProp>
+  <stringProp name="resultVariable"></stringProp>
+  <stringProp name="queryTimeout"></stringProp>
+  <stringProp name="resultSetHandler">Store as String</stringProp>
+</JDBCSampler>
+<hashTree/>
+<JdbcConfig guiclass="JdbcConfigGui" testclass="JdbcConfig" testname="PostgreSQL Connection" enabled="true">
+  <stringProp name="dataSource">postgres</stringProp>
+  <stringProp name="poolMax">10</stringProp>
+  <stringProp name="timeout">10000</stringProp>
+  <stringProp name="trimInterval">60000</stringProp>
+  <stringProp name="autocommit">true</stringProp>
+  <stringProp name="transactionIsolation">DEFAULT</stringProp>
+  <stringProp name="connectionAge">5000</stringProp>
+  <stringProp name="dataSourceImpl">org.postgresql.ds.PGSimpleDataSource</stringProp>
+  <stringProp name="dbUrl">jdbc:postgresql://postgresql.storage.svc.cluster.local:5432/scoring_db</stringProp>
+  <stringProp name="driver">org.postgresql.Driver</stringProp>
+  <stringProp name="username">postgres</stringProp>
+  <stringProp name="password">iaxVrMCI8y</stringProp>
+</JdbcConfig>
+<hashTree/>
+</hashTree>
+<IfController guiclass="IfControllerGui" testclass="IfController" testname="Kafka Load Test Controller" enabled="true">
+  <stringProp name="IfController.condition">${__P(RUN_KAFKA_TESTS,false)}</stringProp>
+  <boolProp name="IfController.evaluateAll">false</boolProp>
+  <boolProp name="IfController.useExpression">true</boolProp>
+</IfController>
+<hashTree>
+<HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Kafka Message Producer" enabled="true">
+  <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="Variables predefined for Kafka Producer" enabled="true">
+    <collectionProp name="Arguments.arguments">
+      <elementProp name="customer_id" elementType="HTTPArgument">
+        <boolProp name="HTTPArgument.always_encode">false</boolProp>
+        <stringProp name="Argument.name">customer_id</stringProp>
+        <stringProp name="Argument.value">CUST${__Random(1000,9999)}</stringProp>
+        <stringProp name="Argument.metadata">=</stringProp>
+        <boolProp name="HTTPArgument.use_equals">true</boolProp>
+      </elementProp>
+      <elementProp name="event_type" elementType="HTTPArgument">
+        <boolProp name="HTTPArgument.always_encode">false</boolProp>
+        <stringProp name="Argument.name">event_type</stringProp>
+        <stringProp name="Argument.value">transaction</stringProp>
+        <stringProp name="Argument.metadata">=</stringProp>
+        <boolProp name="HTTPArgument.use_equals">true</boolProp>
+      </elementProp>
+      <elementProp name="amount" elementType="HTTPArgument">
+        <boolProp name="HTTPArgument.always_encode">false</boolProp>
+        <stringProp name="Argument.name">amount</stringProp>
+        <stringProp name="Argument.value">${__Random(10,5000)}</stringProp>
+        <stringProp name="Argument.metadata">=</stringProp>
+        <boolProp name="HTTPArgument.use_equals">true</boolProp>
+      </elementProp>
+    </collectionProp>
+  </elementProp>
+  <stringProp name="HTTPSampler.domain">kafka-service</stringProp>
+  <stringProp name="HTTPSampler.port">9092</stringProp>
+  <stringProp name="HTTPSampler.protocol">http</stringProp>
+  <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+  <stringProp name="HTTPSampler.path">/topics/transactions</stringProp>
+  <stringProp name="HTTPSampler.method">POST</stringProp>
+  <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+  <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+  <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+  <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+  <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+  <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+  <stringProp name="HTTPSampler.response_timeout"></stringProp>
+</HTTPSamplerProxy>
+<hashTree/>
+</hashTree>
+<ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree" enabled="true">
+  <boolProp name="ResultCollector.error_logging">false</boolProp>
+  <objProp>
+    <name>saveConfig</name>
+    <value class="SampleSaveConfiguration">
+      <time>true</time>
+      <latency>true</latency>
+      <timestamp>true</timestamp>
+      <success>true</success>
+      <label>true</label>
+      <code>true</code>
+      <message>true</message>
+      <threadName>true</threadName>
+      <dataType>true</dataType>
+      <encoding>false</encoding>
+      <assertions>true</assertions>
+      <subresults>true</subresults>
+      <responseData>false</responseData>
+      <samplerData>false</samplerData>
+      <xml>false</xml>
+      <fieldNames>true</fieldNames>
+      <responseHeaders>false</responseHeaders>
+      <requestHeaders>false</requestHeaders>
+      <responseDataOnError>false</responseDataOnError>
+      <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+      <assertionsResultsToSave>0</assertionsResultsToSave>
+      <bytes>true</bytes>
+      <sentBytes>true</sentBytes>
+      <url>true</url>
+      <threadCounts>true</threadCounts>
+      <idleTime>true</idleTime>
+      <connectTime>true</connectTime>
+    </value>
+  </objProp>
+  <stringProp name="filename"></stringProp>
+</ResultCollector>
+<hashTree/>
+<kg.apc.jmeter.perfmon.PerfMonCollector guiclass="kg.apc.jmeter.vizualizers.PerfMonGui" testclass="kg.apc.jmeter.perfmon.PerfMonCollector" testname="PerfMon Metrics Collector" enabled="true">
+  <boolProp name="ResultCollector.error_logging">false</boolProp>
+  <objProp>
+    <name>saveConfig</name>
+    <value class="SampleSaveConfiguration">
+      <time>true</time>
+      <latency>true</latency>
+      <timestamp>true</timestamp>
+      <success>true</success>
+      <label>true</label>
+      <code>true</code>
+      <message>true</message>
+      <threadName>true</threadName>
+      <dataType>true</dataType>
+      <encoding>false</encoding>
+      <assertions>true</assertions>
+      <subresults>true</subresults>
+      <responseData>false</responseData>
+      <samplerData>false</samplerData>
+      <xml>false</xml>
+      <fieldNames>true</fieldNames>
+      <responseHeaders>false</responseHeaders>
+      <requestHeaders>false</requestHeaders>
+      <responseDataOnError>false</responseDataOnError>
+      <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+      <assertionsResultsToSave>0</assertionsResultsToSave>
+      <bytes>true</bytes>
+      <sentBytes>true</sentBytes>
+      <url>true</url>
+      <threadCounts>true</threadCounts>
+      <idleTime>true</idleTime>
+      <connectTime>true</connectTime>
+    </value>
+  </objProp>
+  <stringProp name="filename">performance-metrics.jtl</stringProp>
+  <collectionProp name="metricConnections">
+    <collectionProp name="metricConnections">
+      <stringProp name="test">.*</stringProp>
+      <collectionProp name="servers">
+        <collectionProp name="0">
+          <stringProp name="Host">localhost</stringProp>
+          <stringProp name="Port">4444</stringProp>
+          <stringProp name="Metric">CPU</stringProp>
+          <stringProp name="MetricParam"></stringProp>
+        </collectionProp>
+        <collectionProp name="1">
+          <stringProp name="Host">localhost</stringProp>
+          <stringProp name="Port">4444</stringProp>
+          <stringProp name="Metric">Memory</stringProp>
+          <stringProp name="MetricParam"></stringProp>
+        </collectionProp>
+      </collectionProp>
+    </collectionProp>
+  </collectionProp>
+</kg.apc.jmeter.perfmon.PerfMonCollector>
+<hashTree/>
+<kg.apc.jmeter.reporter.HtmlReporter guiclass="kg.apc.jmeter.reporter.gui.HtmlReporterGui" testclass="kg.apc.jmeter.reporter.HtmlReporter" testname="HTML Report" enabled="true">
+  <stringProp name="filename">jmeter-performance-report.html</stringProp>
+</kg.apc.jmeter.reporter.HtmlReporter>
+<hashTree/>
+</hashTree>
+</hashTree>
+</jmeterTestPlan>

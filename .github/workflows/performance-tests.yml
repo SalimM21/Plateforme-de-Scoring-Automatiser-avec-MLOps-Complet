@@ -1,0 +1,322 @@
+name: ⚡ Performance & Load Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Type of performance test'
+        required: true
+        default: 'load'
+        type: choice
+        options:
+        - load
+        - stress
+        - spike
+        - volume
+        - endurance
+      duration:
+        description: 'Test duration (minutes)'
+        required: false
+        default: '5'
+        type: string
+      concurrency:
+        description: 'Number of concurrent users'
+        required: false
+        default: '10'
+        type: string
+      target_environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+
+env:
+  KUBECONFIG: ${{ secrets.KUBE_CONFIG }}
+
+jobs:
+  performance-test:
+    name: ⚡ Performance Test - ${{ inputs.test_type }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target_environment }}
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🐍 Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: 📦 Install Locust and dependencies
+      run: |
+        pip install locust pytest requests python-dotenv
+
+    - name: 🔧 Setup kubectl access
+      uses: azure/k8s-set-context@v3
+      with:
+        method: kubeconfig
+        kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+    - name: 🌐 Get service endpoints
+      run: |
+        # Récupérer les URLs des services
+        SCORING_API_URL=$(kubectl get svc scoring-api-service -o jsonpath='{.spec.clusterIP}:{.spec.ports[0].port}')
+        MLFLOW_URL=$(kubectl get svc mlflow-service -o jsonpath='{.spec.clusterIP}:{.spec.ports[0].port}')
+        FEAST_URL=$(kubectl get svc feast-feature-server-service -o jsonpath='{.spec.clusterIP}:{.spec.ports[0].port}')
+
+        echo "SCORING_API_URL=http://$SCORING_API_URL" >> $GITHUB_ENV
+        echo "MLFLOW_URL=http://$MLFLOW_URL" >> $GITHUB_ENV
+        echo "FEAST_URL=http://$FEAST_URL" >> $GITHUB_ENV
+
+    - name: 📝 Create Locust test file
+      run: |
+        cat << EOF > locustfile.py
+        import time
+        import random
+        import json
+        from locust import HttpUser, task, between, constant
+
+        class ScoringAPIUser(HttpUser):
+            wait_time = between(1, 3)
+
+            @task(3)
+            def score_credit(self):
+                """Test de scoring de crédit"""
+                payload = {
+                    "customer_id": f"CUST{random.randint(1000,9999)}",
+                    "features": {
+                        "age": random.randint(18, 80),
+                        "income": random.normalvariate(50000, 15000),
+                        "employment_years": random.randint(0, 40),
+                        "debt_ratio": random.uniform(0, 1),
+                        "revolving_utilization": random.uniform(0, 1)
+                    }
+                }
+
+                with self.client.post("/score",
+                                    json=payload,
+                                    headers={"Content-Type": "application/json"},
+                                    catch_response=True) as response:
+                    if response.status_code == 200:
+                        response.success()
+                    elif response.status_code == 429:
+                        response.success()  # Rate limiting is expected
+                    else:
+                        response.failure(f"Unexpected status: {response.status_code}")
+
+            @task(1)
+            def get_health(self):
+                """Test de health check"""
+                self.client.get("/health")
+
+            @task(1)
+            def get_features(self):
+                """Test de récupération de features"""
+                customer_id = f"CUST{random.randint(1000,9999)}"
+                self.client.get(f"/features/{customer_id}")
+
+        class MLflowUser(HttpUser):
+            wait_time = constant(2)
+
+            @task
+            def get_experiments(self):
+                """Test MLflow experiments"""
+                self.client.get("/api/2.0/mlflow/experiments/list")
+
+            @task
+            def get_runs(self):
+                """Test MLflow runs"""
+                self.client.get("/api/2.0/mlflow/runs/search")
+
+        class FeastUser(HttpUser):
+            wait_time = between(2, 5)
+
+            @task
+            def get_online_features(self):
+                """Test Feast online features"""
+                payload = {
+                    "features": ["customer_features:age", "customer_features:income"],
+                    "entities": [{"customer_id": f"CUST{random.randint(1000,9999)}"}]
+                }
+
+                self.client.post("/api/v1/online-features",
+                               json=payload,
+                               headers={"Content-Type": "application/json"})
+        EOF
+
+    - name: 🚀 Run Locust performance test
+      run: |
+        # Configuration du test selon le type
+        case "${{ inputs.test_type }}" in
+          "load")
+            # Test de charge normal
+            USERS=${{ inputs.concurrency }}
+            SPAWN_RATE=2
+            RUN_TIME="${{ inputs.duration }}m"
+            ;;
+          "stress")
+            # Test de stress
+            USERS=$(( ${{ inputs.concurrency }} * 2 ))
+            SPAWN_RATE=5
+            RUN_TIME="${{ inputs.duration }}m"
+            ;;
+          "spike")
+            # Test de pic
+            USERS=$(( ${{ inputs.concurrency }} * 5 ))
+            SPAWN_RATE=10
+            RUN_TIME="1m"
+            ;;
+          "volume")
+            # Test de volume
+            USERS=${{ inputs.concurrency }}
+            SPAWN_RATE=1
+            RUN_TIME="${{ inputs.duration }}m"
+            ;;
+          "endurance")
+            # Test d'endurance
+            USERS=${{ inputs.concurrency }}
+            SPAWN_RATE=1
+            RUN_TIME="10m"
+            ;;
+        esac
+
+        echo "🧪 Running ${{ inputs.test_type }} test:"
+        echo "   Users: $USERS"
+        echo "   Spawn rate: $SPAWN_RATE"
+        echo "   Duration: $RUN_TIME"
+        echo "   Target: ${{ inputs.target_environment }}"
+
+        # Démarrer port-forward pour accéder aux services
+        kubectl port-forward svc/scoring-api-service 8000:8000 &
+        PF1_PID=$!
+
+        kubectl port-forward svc/mlflow-service 5000:5000 &
+        PF2_PID=$!
+
+        kubectl port-forward svc/feast-feature-server-service 6566:6566 &
+        PF3_PID=$!
+
+        # Attendre que les port-forwards soient établis
+        sleep 10
+
+        # Exécuter le test Locust
+        locust --headless \
+               --users $USERS \
+               --spawn-rate $SPAWN_RATE \
+               --run-time $RUN_TIME \
+               --host http://localhost:8000 \
+               --csv results \
+               --logfile locust.log
+
+        # Nettoyer les port-forwards
+        kill $PF1_PID $PF2_PID $PF3_PID 2>/dev/null || true
+
+    - name: 📊 Process results
+      run: |
+        if [ -f results_stats.csv ]; then
+          echo "📈 Performance Test Results:"
+          echo "=========================="
+
+          # Calculer les métriques principales
+          AVG_RESPONSE_TIME=$(tail -1 results_stats.csv | cut -d',' -f5)
+          MEDIAN_RESPONSE_TIME=$(tail -1 results_stats.csv | cut -d',' -f6)
+          REQUESTS_PER_SEC=$(tail -1 results_stats.csv | cut -d',' -f9)
+          FAILURE_RATE=$(tail -1 results_stats.csv | cut -d',' -f13)
+
+          echo "⏱️  Average Response Time: ${AVG_RESPONSE_TIME}ms"
+          echo "📊 Median Response Time: ${MEDIAN_RESPONSE_TIME}ms"
+          echo "🚀 Requests per Second: ${REQUESTS_PER_SEC}"
+          echo "❌ Failure Rate: ${FAILURE_RATE}%"
+
+          # Évaluation des résultats
+          if (( $(echo "$AVG_RESPONSE_TIME < 1000" | bc -l) )); then
+            echo "✅ Performance: EXCELLENT (< 1s)"
+          elif (( $(echo "$AVG_RESPONSE_TIME < 2000" | bc -l) )); then
+            echo "✅ Performance: GOOD (< 2s)"
+          elif (( $(echo "$AVG_RESPONSE_TIME < 5000" | bc -l) )); then
+            echo "⚠️  Performance: ACCEPTABLE (< 5s)"
+          else
+            echo "❌ Performance: POOR (> 5s)"
+          fi
+
+          if (( $(echo "$FAILURE_RATE < 1" | bc -l) )); then
+            echo "✅ Reliability: EXCELLENT (< 1% failures)"
+          elif (( $(echo "$FAILURE_RATE < 5" | bc -l) )); then
+            echo "✅ Reliability: GOOD (< 5% failures)"
+          else
+            echo "❌ Reliability: POOR (> 5% failures)"
+          fi
+        else
+          echo "❌ No performance results found"
+        fi
+
+    - name: 📤 Upload performance results
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-results-${{ inputs.test_type }}-${{ inputs.target_environment }}
+        path: |
+          results_*.csv
+          locust.log
+          locustfile.py
+
+    - name: 📋 Generate performance report
+      run: |
+        cat << EOF > performance-report.md
+        # ⚡ Performance Test Report
+
+        ## Test Configuration
+        - **Type**: ${{ inputs.test_type }}
+        - **Environment**: ${{ inputs.target_environment }}
+        - **Duration**: ${{ inputs.duration }} minutes
+        - **Concurrency**: ${{ inputs.concurrency }} users
+        - **Timestamp**: $(date)
+
+        ## Results Summary
+        - **Average Response Time**: ${AVG_RESPONSE_TIME:-N/A} ms
+        - **Median Response Time**: ${MEDIAN_RESPONSE_TIME:-N/A} ms
+        - **Requests per Second**: ${REQUESTS_PER_SEC:-N/A}
+        - **Failure Rate**: ${FAILURE_RATE:-N/A}%
+
+        ## Recommendations
+        $(if (( $(echo "${AVG_RESPONSE_TIME:-5000} > 2000" | bc -l 2>/dev/null || echo 1) )); then
+          echo "- Consider optimizing database queries"
+          echo "- Review API caching strategies"
+          echo "- Evaluate horizontal scaling"
+        else
+          echo "- Performance within acceptable limits"
+          echo "- Continue monitoring for degradation"
+        fi)
+
+        $(if (( $(echo "${FAILURE_RATE:-0} > 5" | bc -l 2>/dev/null || echo 0) )); then
+          echo "- Investigate error causes"
+          echo "- Check service health and logs"
+          echo "- Review error handling mechanisms"
+        else
+          echo "- Error rates within acceptable limits"
+        fi)
+        EOF
+
+    - name: 📤 Upload performance report
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-report-${{ inputs.test_type }}-${{ inputs.target_environment }}
+        path: performance-report.md
+
+    - name: 🎯 Performance thresholds check
+      run: |
+        # Seuils de performance
+        MAX_RESPONSE_TIME=5000  # 5 secondes
+        MAX_FAILURE_RATE=5      # 5%
+
+        if (( $(echo "${AVG_RESPONSE_TIME:-0} > $MAX_RESPONSE_TIME" | bc -l 2>/dev/null || echo 0) )) || \
+           (( $(echo "${FAILURE_RATE:-0} > $MAX_FAILURE_RATE" | bc -l 2>/dev/null || echo 0) )); then
+          echo "❌ Performance thresholds exceeded!"
+          echo "   Response Time: ${AVG_RESPONSE_TIME:-N/A}ms (max: ${MAX_RESPONSE_TIME}ms)"
+          echo "   Failure Rate: ${FAILURE_RATE:-N/A}% (max: ${MAX_FAILURE_RATE}%)"
+          exit 1
+        else
+          echo "✅ Performance thresholds met!"
+        fi

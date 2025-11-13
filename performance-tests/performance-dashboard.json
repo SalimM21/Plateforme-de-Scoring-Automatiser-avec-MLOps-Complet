@@ -1,0 +1,143 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "MLOps Performance Testing Dashboard",
+    "tags": ["mlops", "performance", "testing"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "API Response Time",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{method=\"POST\",endpoint=\"/score\"}[5m]))",
+            "legendFormat": "95th percentile"
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket{method=\"POST\",endpoint=\"/score\"}[5m]))",
+            "legendFormat": "50th percentile"
+          }
+        ],
+        "yAxes": [
+          {
+            "unit": "seconds",
+            "min": 0
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Request Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[5m])",
+            "legendFormat": "Requests/sec"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Error Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{status=~\"5..\"}[5m]) / rate(http_requests_total[5m]) * 100",
+            "legendFormat": "Error rate %"
+          }
+        ],
+        "yAxes": [
+          {
+            "unit": "percent",
+            "min": 0,
+            "max": 100
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Database Performance",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(postgres_queries_total[5m])",
+            "legendFormat": "Queries/sec"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(postgres_query_duration_seconds_bucket[5m]))",
+            "legendFormat": "95th percentile query time"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Kafka Throughput",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(kafka_messages_total[5m])",
+            "legendFormat": "Messages/sec"
+          },
+          {
+            "expr": "kafka_consumer_lag",
+            "legendFormat": "Consumer lag"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Feast Performance",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(feast_online_features_duration_seconds_bucket[5m]))",
+            "legendFormat": "95th percentile feature retrieval"
+          },
+          {
+            "expr": "rate(feast_online_features_total[5m])",
+            "legendFormat": "Features retrieved/sec"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "System Resources",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(container_cpu_usage_seconds_total{pod=~\"scoring-api.*\"}[5m])",
+            "legendFormat": "API CPU usage"
+          },
+          {
+            "expr": "container_memory_usage_bytes{pod=~\"scoring-api.*\"}",
+            "legendFormat": "API memory usage"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "ML Model Performance",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(ml_model_inference_duration_seconds_bucket[5m]))",
+            "legendFormat": "95th percentile inference time"
+          },
+          {
+            "expr": "rate(ml_model_predictions_total[5m])",
+            "legendFormat": "Predictions/sec"
+          }
+        ]
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "30s",
+    "schemaVersion": 27,
+    "version": 0,
+    "links": []
+  }
+}
