@@ -1,0 +1,556 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: falco
+  namespace: security
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: falco
+  template:
+    metadata:
+      labels:
+        app: falco
+    spec:
+      serviceAccountName: falco
+      containers:
+      - name: falco
+        image: falcosecurity/falco:0.35.0
+        securityContext:
+          privileged: true
+        args:
+        - /usr/bin/falco
+        - --cri
+        - /run/containerd/containerd.sock
+        - -K
+        - /var/run/secrets/kubernetes.io/serviceaccount/token
+        - -k
+        - https://kubernetes.default
+        - --webserver
+        - --webserver-listen-port=8765
+        volumeMounts:
+        - mountPath: /host/var/run/containerd/containerd.sock
+          name: containerd-socket
+          readOnly: true
+        - mountPath: /host/proc
+          name: proc-fs
+          readOnly: true
+        - mountPath: /host/boot
+          name: boot-fs
+          readOnly: true
+        - mountPath: /host/lib/modules
+          name: lib-modules
+          readOnly: true
+        - mountPath: /host/usr
+          name: usr-fs
+          readOnly: true
+        - mountPath: /host/etc
+          name: etc-fs
+          readOnly: true
+        - mountPath: /etc/ssl/certs/
+          name: certs
+          readOnly: true
+        - mountPath: /etc/falco
+          name: config-volume
+          readOnly: true
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "200m"
+      volumes:
+      - name: containerd-socket
+        hostPath:
+          path: /run/containerd/containerd.sock
+      - name: proc-fs
+        hostPath:
+          path: /proc
+      - name: boot-fs
+        hostPath:
+          path: /boot
+      - name: lib-modules
+        hostPath:
+          path: /lib/modules
+      - name: usr-fs
+        hostPath:
+          path: /usr
+      - name: etc-fs
+        hostPath:
+          path: /etc
+      - name: certs
+        hostPath:
+          path: /etc/ssl/certs/
+      - name: config-volume
+        configMap:
+          name: falco-config
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: falco
+  namespace: security
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: falco
+rules:
+- apiGroups: [""]
+  resources: ["nodes", "namespaces", "pods", "events"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["extensions"]
+  resources: ["replicasets"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: falco
+subjects:
+- kind: ServiceAccount
+  name: falco
+  namespace: security
+roleRef:
+  kind: ClusterRole
+  name: falco
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: falco-config
+  namespace: security
+data:
+  falco.yaml: |
+    rules_file:
+      - /etc/falco/falco_rules.yaml
+      - /etc/falco/falco_rules.local.yaml
+      - /etc/falco/k8s_audit_rules.yaml
+    plugins:
+      - name: k8saudit
+        library_path: libk8saudit.so
+        init_config:
+          maxEventSize: 262144
+          webhookMaxBatchSize: 12582912
+        open_params: "http://:9765/k8s-audit"
+    load_plugins: [k8saudit]
+    time_format_iso_8601: true
+    json_output: true
+    json_include_output_property: true
+    json_include_tags_property: true
+    priority: debug
+    buffered_outputs: false
+    syslog_output:
+      enabled: false
+    file_output:
+      enabled: true
+      keep_alive: false
+      filename: /var/log/falco-events.log
+    stdout_output:
+      enabled: true
+    webhook_output:
+      enabled: true
+      url: http://event-handler.security.svc.cluster.local:8080/webhook
+    grpc_output:
+      enabled: false
+    grpc:
+      enabled: false
+    http_output:
+      enabled: false
+    program_output:
+      enabled: false
+    rule_matching: first
+  falco_rules.local.yaml: |
+    - rule: Suspicious File Access in Scoring API
+      desc: Detect suspicious file access patterns in scoring API containers
+      condition: >
+        container.image.repository = "scoring-api" and
+        (fd.filename contains "/etc/passwd" or
+         fd.filename contains "/etc/shadow" or
+         fd.filename contains "/root" or
+         fd.filename contains "/home")
+      output: >
+        Suspicious file access in scoring API (user=%user.name command=%proc.cmdline file=%fd.filename)
+      priority: WARNING
+      tags: [filesystem, suspicious]
+
+    - rule: Unusual Network Connection from API
+      desc: Detect unusual outbound connections from API containers
+      condition: >
+        container.image.repository = "scoring-api" and
+        outbound and
+        not (fd.sip in (database_ip, redis_ip, kafka_ip, monitoring_ip))
+      output: >
+        Unusual outbound connection from API (user=%user.name command=%proc.cmdline destination=%fd.sip:%fd.sport)
+      priority: WARNING
+      tags: [network, suspicious]
+
+    - rule: Privilege Escalation Attempt
+      desc: Detect attempts to escalate privileges
+      condition: >
+        spawned_process and
+        proc.vpid = 1 and
+        user.uid != 0 and
+        (proc.cmdline contains "sudo" or
+         proc.cmdline contains "su" or
+         proc.cmdline contains "setuid")
+      output: >
+        Privilege escalation attempt (user=%user.name uid=%user.uid command=%proc.cmdline)
+      priority: CRITICAL
+      tags: [privilege, escalation]
+
+    - rule: Sensitive Data Access
+      desc: Detect access to sensitive files or data
+      condition: >
+        open_read and
+        (fd.filename contains "credentials" or
+         fd.filename contains "secrets" or
+         fd.filename contains ".pem" or
+         fd.filename contains ".key")
+      output: >
+        Access to sensitive data (user=%user.name file=%fd.filename)
+      priority: WARNING
+      tags: [sensitive, data]
+
+    - rule: Cryptocurrency Mining Detection
+      desc: Detect potential cryptocurrency mining activities
+      condition: >
+        spawned_process and
+        (proc.cmdline contains "xmrig" or
+         proc.cmdline contains "minerd" or
+         proc.cmdline contains "cgminer" or
+         proc.cmdline contains "bfgminer")
+      output: >
+        Potential cryptocurrency mining detected (command=%proc.cmdline)
+      priority: CRITICAL
+      tags: [mining, malware]
+
+    - rule: Reverse Shell Detection
+      desc: Detect potential reverse shell connections
+      condition: >
+        outbound and
+        fd.sport >= 1024 and
+        (proc.cmdline contains "bash" or
+         proc.cmdline contains "sh" or
+         proc.cmdline contains "nc" or
+         proc.cmdline contains "ncat" or
+         proc.cmdline contains "socat")
+      output: >
+        Potential reverse shell (command=%proc.cmdline destination=%fd.sip:%fd.sport)
+      priority: CRITICAL
+      tags: [reverse, shell, malware]
+
+    - rule: Container Escape Attempt
+      desc: Detect attempts to escape container boundaries
+      condition: >
+        (mount or
+         open_read and fd.filename contains "/proc/1/root" or
+         open_read and fd.filename contains "/host")
+      output: >
+        Container escape attempt (user=%user.name command=%proc.cmdline file=%fd.filename)
+      priority: CRITICAL
+      tags: [escape, container]
+
+    - rule: Database Anomalous Activity
+      desc: Detect unusual database access patterns
+      condition: >
+        container.image.repository = "postgresql" and
+        (proc.cmdline contains "DROP" or
+         proc.cmdline contains "DELETE" and not proc.cmdline contains "WHERE") and
+        user.name != "postgres"
+      output: >
+        Anomalous database activity (user=%user.name command=%proc.cmdline)
+      priority: WARNING
+      tags: [database, anomaly]
+
+    - rule: API Rate Limit Bypass Attempt
+      desc: Detect potential rate limit bypass attempts
+      condition: >
+        container.image.repository = "api-gateway" and
+        outbound and
+        fd.sport >= 1024 and
+        evt.count > 100
+      output: >
+        Potential rate limit bypass (count=%evt.count destination=%fd.sip:%fd.sport)
+      priority: WARNING
+      tags: [rate, limit, bypass]
+
+    - rule: Model Poisoning Attempt
+      desc: Detect attempts to modify or poison ML models
+      condition: >
+        container.image.repository = "mlflow" and
+        (open_write and fd.filename contains ".pkl" or
+         open_write and fd.filename contains ".joblib" or
+         proc.cmdline contains "rm" and fd.filename contains "model")
+      output: >
+        Potential model poisoning attempt (user=%user.name file=%fd.filename command=%proc.cmdline)
+      priority: CRITICAL
+      tags: [ml, poisoning, security]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: event-handler
+  namespace: security
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: event-handler
+  template:
+    metadata:
+      labels:
+        app: event-handler
+    spec:
+      containers:
+      - name: event-handler
+        image: python:3.9-slim
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SLACK_WEBHOOK_URL
+          valueFrom:
+            secretKeyRef:
+              name: security-alerts
+              key: slack_webhook
+        - name: EMAIL_RECIPIENTS
+          value: "security@company.com,soc@company.com"
+        volumeMounts:
+        - name: event-logs
+          mountPath: /var/log/events
+      volumes:
+      - name: event-logs
+        persistentVolumeClaim:
+          claimName: security-events-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: event-handler
+  namespace: security
+spec:
+  selector:
+    app: event-handler
+  ports:
+  - port: 8080
+    targetPort: 8080
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: security-events-pvc
+  namespace: security
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: security-alerts
+  namespace: security
+type: Opaque
+data:
+  slack_webhook: <base64-encoded-slack-webhook>
+  email_smtp: <base64-encoded-smtp-config>
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: audit-collector
+  namespace: security
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: audit-collector
+  template:
+    metadata:
+      labels:
+        app: audit-collector
+    spec:
+      serviceAccountName: audit-collector-sa
+      containers:
+      - name: audit-collector
+        image: fluent/fluent-bit:2.0
+        volumeMounts:
+        - name: audit-config
+          mountPath: /fluent-bit/etc/
+        - name: audit-logs
+          mountPath: /var/log/audit
+      volumes:
+      - name: audit-config
+        configMap:
+          name: audit-config
+      - name: audit-logs
+        persistentVolumeClaim:
+          claimName: audit-logs-pvc
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: audit-collector-sa
+  namespace: security
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: audit-collector
+rules:
+- apiGroups: [""]
+  resources: ["events", "pods", "nodes"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["audit.k8s.io"]
+  resources: ["events"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: audit-collector
+subjects:
+- kind: ServiceAccount
+  name: audit-collector-sa
+  namespace: security
+roleRef:
+  kind: ClusterRole
+  name: audit-collector
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: audit-config
+  namespace: security
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush         5
+        Log_Level     info
+        Daemon        off
+
+    [INPUT]
+        Name              tail
+        Path              /var/log/kubernetes/audit.log
+        Parser            json
+        Tag               audit.*
+        Refresh_Interval  5
+
+    [INPUT]
+        Name              tail
+        Path              /var/log/containers/*/*/*.log
+        Parser            cri
+        Tag               container.*
+        Refresh_Interval  5
+
+    [FILTER]
+        Name                grep
+        Match               audit.*
+        Regex               verb (create|update|delete|patch)
+
+    [FILTER]
+        Name                record_modifier
+        Match               *
+        Record              cluster_name scoring-platform
+        Record              environment production
+
+    [OUTPUT]
+        Name  loki
+        Match *
+        Host  loki.logging.svc.cluster.local
+        Port  3100
+        Labels job=audit,component=security
+        Line_Format json
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: audit-logs-pvc
+  namespace: security
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 200Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: compliance-monitor
+  namespace: security
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: compliance-monitor
+  template:
+    metadata:
+      labels:
+        app: compliance-monitor
+    spec:
+      containers:
+      - name: compliance-monitor
+        image: python:3.9-slim
+        env:
+        - name: COMPLIANCE_RULES
+          valueFrom:
+            configMapKeyRef:
+              name: compliance-rules
+              key: rules.yaml
+        volumeMounts:
+        - name: compliance-logs
+          mountPath: /var/log/compliance
+      volumes:
+      - name: compliance-logs
+        persistentVolumeClaim:
+          claimName: compliance-logs-pvc
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: compliance-rules
+  namespace: security
+data:
+  rules.yaml: |
+    gdpr:
+      data_retention: 2555  # 7 years in days
+      encryption_required: true
+      audit_required: true
+      consent_required: true
+
+    pci_dss:
+      encryption_required: true
+      access_logging: true
+      vulnerability_scanning: true
+      network_segmentation: true
+
+    sox:
+      audit_trail: true
+      access_controls: true
+      change_management: true
+      financial_data_protection: true
+
+    hipaa:
+      phi_encryption: true
+      access_logging: true
+      breach_notification: true
+      audit_trail: true
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: compliance-logs-pvc
+  namespace: security
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
