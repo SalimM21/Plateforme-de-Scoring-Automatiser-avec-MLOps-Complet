@@ -1,0 +1,279 @@
+# Alertes de monitoring des sauvegardes
+# À ajouter au fichier prometheus/alerts.yml
+
+groups:
+  - name: backup_alerts
+    rules:
+      # ===== ALERTES SAUVEGARDE POSTGRESQL =====
+      - alert: PostgreSQLBackupFailed
+        expr: postgresql_backup_success == 0
+        for: 1h
+        labels:
+          severity: critical
+          service: backup
+          component: postgresql
+        annotations:
+          summary: "Échec de la sauvegarde PostgreSQL"
+          description: "La sauvegarde PostgreSQL a échoué pendant plus d'1 heure"
+
+      - alert: PostgreSQLBackupStale
+        expr: time() - postgresql_backup_last_success > 86400
+        for: 1h
+        labels:
+          severity: warning
+          service: backup
+          component: postgresql
+        annotations:
+          summary: "Sauvegarde PostgreSQL obsolète"
+          description: "La dernière sauvegarde PostgreSQL date de plus de 24 heures"
+
+      - alert: PostgreSQLBackupSizeAnomaly
+        expr: abs(postgresql_backup_size_bytes - postgresql_backup_size_bytes offset 24h) / postgresql_backup_size_bytes offset 24h > 0.5
+        for: 1h
+        labels:
+          severity: warning
+          service: backup
+          component: postgresql
+        annotations:
+          summary: "Taille de sauvegarde PostgreSQL anormale"
+          description: "La taille de la sauvegarde PostgreSQL a varié de plus de 50% par rapport à hier"
+
+      # ===== ALERTES SAUVEGARDE MINIO =====
+      - alert: MinIOBackupFailed
+        expr: minio_backup_success == 0
+        for: 25h
+        labels:
+          severity: critical
+          service: backup
+          component: minio
+        annotations:
+          summary: "Échec de la sauvegarde MinIO"
+          description: "La sauvegarde MinIO a échoué pendant plus de 25 heures"
+
+      - alert: MinIOBackupStale
+        expr: time() - minio_backup_last_success > 172800
+        for: 2h
+        labels:
+          severity: warning
+          service: backup
+          component: minio
+        annotations:
+          summary: "Sauvegarde MinIO obsolète"
+          description: "La dernière sauvegarde MinIO date de plus de 48 heures"
+
+      - alert: MinIOBackupCountLow
+        expr: minio_backup_count < 1
+        for: 1h
+        labels:
+          severity: warning
+          service: backup
+          component: minio
+        annotations:
+          summary: "Nombre de sauvegardes MinIO faible"
+          description: "Il y a moins d'1 sauvegarde MinIO disponible"
+
+      # ===== ALERTES SAUVEGARDE FEAST =====
+      - alert: FeastBackupFailed
+        expr: feast_backup_success == 0
+        for: 5h
+        labels:
+          severity: critical
+          service: backup
+          component: feast
+        annotations:
+          summary: "Échec de la sauvegarde Feast"
+          description: "La sauvegarde Feast a échoué pendant plus de 5 heures"
+
+      - alert: FeastBackupStale
+        expr: time() - feast_backup_last_success > 57600
+        for: 2h
+        labels:
+          severity: warning
+          service: backup
+          component: feast
+        annotations:
+          summary: "Sauvegarde Feast obsolète"
+          description: "La dernière sauvegarde Feast date de plus de 16 heures"
+
+      # ===== ALERTES SAUVEGARDE KAFKA =====
+      - alert: KafkaBackupFailed
+        expr: kafka_backup_success == 0
+        for: 25h
+        labels:
+          severity: critical
+          service: backup
+          component: kafka
+        annotations:
+          summary: "Échec de la sauvegarde Kafka"
+          description: "La sauvegarde Kafka a échoué pendant plus de 25 heures"
+
+      - alert: KafkaBackupStale
+        expr: time() - kafka_backup_last_success > 172800
+        for: 2h
+        labels:
+          severity: warning
+          service: backup
+          component: kafka
+        annotations:
+          summary: "Sauvegarde Kafka obsolète"
+          description: "La dernière sauvegarde Kafka date de plus de 48 heures"
+
+      # ===== ALERTES SAUVEGARDE MLFLOW =====
+      - alert: MLflowBackupFailed
+        expr: mlflow_backup_success == 0
+        for: 25h
+        labels:
+          severity: critical
+          service: backup
+          component: mlflow
+        annotations:
+          summary: "Échec de la sauvegarde MLflow"
+          description: "La sauvegarde MLflow a échoué pendant plus de 25 heures"
+
+      - alert: MLflowBackupStale
+        expr: time() - mlflow_backup_last_success > 172800
+        for: 2h
+        labels:
+          severity: warning
+          service: backup
+          component: mlflow
+        annotations:
+          summary: "Sauvegarde MLflow obsolète"
+          description: "La dernière sauvegarde MLflow date de plus de 48 heures"
+
+      # ===== ALERTES ESPACE STOCKAGE =====
+      - alert: BackupStorageLow
+        expr: (backup_storage_available_bytes / backup_storage_total_bytes) < 0.1
+        for: 1h
+        labels:
+          severity: warning
+          service: backup
+          component: storage
+        annotations:
+          summary: "Espace de stockage de sauvegarde faible"
+          description: "Il reste moins de 10% d'espace disponible pour les sauvegardes"
+
+      - alert: BackupStorageFull
+        expr: (backup_storage_available_bytes / backup_storage_total_bytes) < 0.05
+        for: 30m
+        labels:
+          severity: critical
+          service: backup
+          component: storage
+        annotations:
+          summary: "Espace de stockage de sauvegarde critique"
+          description: "Il reste moins de 5% d'espace disponible pour les sauvegardes"
+
+      # ===== ALERTES INTÉGRITÉ =====
+      - alert: BackupIntegrityFailed
+        expr: backup_integrity_check_success == 0
+        for: 1h
+        labels:
+          severity: critical
+          service: backup
+          component: integrity
+        annotations:
+          summary: "Échec de vérification d'intégrité"
+          description: "La vérification d'intégrité des sauvegardes a échoué"
+
+      - alert: BackupCorruptionDetected
+        expr: increase(backup_corruption_count[1h]) > 0
+        for: 5m
+        labels:
+          severity: critical
+          service: backup
+          component: integrity
+        annotations:
+          summary: "Corruption de sauvegarde détectée"
+          description: "Une corruption a été détectée dans les fichiers de sauvegarde"
+
+      # ===== ALERTES RESTAURATION =====
+      - alert: BackupRestoreTestFailed
+        expr: backup_restore_test_success == 0
+        for: 1h
+        labels:
+          severity: critical
+          service: backup
+          component: restore
+        annotations:
+          summary: "Échec du test de restauration"
+          description: "Le test automatique de restauration des sauvegardes a échoué"
+
+      - alert: BackupRestoreTimeHigh
+        expr: histogram_quantile(0.95, rate(backup_restore_duration_seconds_bucket[1h])) > 1800
+        for: 1h
+        labels:
+          severity: warning
+          service: backup
+          component: restore
+        annotations:
+          summary: "Temps de restauration élevé"
+          description: "Le temps de restauration 95th percentile dépasse 30 minutes"
+
+      # ===== ALERTES GÉNÉRIQUES =====
+      - alert: BackupJobNotRunning
+        expr: up{job="backup-job"} == 0
+        for: 1h
+        labels:
+          severity: warning
+          service: backup
+          component: jobs
+        annotations:
+          summary: "Job de sauvegarde non exécuté"
+          description: "Aucun job de sauvegarde n'est en cours d'exécution depuis 1 heure"
+
+      - alert: BackupJobFailed
+        expr: increase(backup_job_failures_total[1h]) > 0
+        for: 5m
+        labels:
+          severity: critical
+          service: backup
+          component: jobs
+        annotations:
+          summary: "Job de sauvegarde échoué"
+          description: "Un job de sauvegarde a échoué dans la dernière heure"
+
+      - alert: BackupAgeTooOld
+        expr: time() - backup_last_success_timestamp > 604800
+        for: 1h
+        labels:
+          severity: critical
+          service: backup
+          component: age
+        annotations:
+          summary: "Sauvegarde trop ancienne"
+          description: "La dernière sauvegarde réussie date de plus de 7 jours"
+
+      # ===== ALERTES BUSINESS CONTINUITY =====
+      - alert: BackupSLAViolation
+        expr: backup_sla_compliance_ratio < 0.99
+        for: 24h
+        labels:
+          severity: critical
+          service: backup
+          component: sla
+        annotations:
+          summary: "Violation SLA de sauvegarde"
+          description: "Le taux de conformité SLA des sauvegardes est inférieur à 99% sur 24h"
+
+      - alert: RecoveryTimeObjectiveExceeded
+        expr: backup_recovery_time_seconds > 3600
+        for: 1h
+        labels:
+          severity: critical
+          service: backup
+          component: rto
+        annotations:
+          summary: "RTO dépassé"
+          description: "Le Recovery Time Objective a été dépassé (plus de 1 heure)"
+
+      - alert: RecoveryPointObjectiveExceeded
+        expr: backup_recovery_point_age_seconds > 3600
+        for: 1h
+        labels:
+          severity: critical
+          service: backup
+          component: rpo
+        annotations:
+          summary: "RPO dépassé"
+          description: "Le Recovery Point Objective a été dépassé (plus de 1 heure de données perdues)"
