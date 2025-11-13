@@ -1,0 +1,178 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: minio-backup-cron
+  namespace: storage
+spec:
+  schedule: "0 2 * * *"  # Tous les jours à 2h
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: minio-backup
+            image: minio/mc:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              # Configuration
+              TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+              BACKUP_NAME="minio_backup_${TIMESTAMP}"
+              RETENTION_DAYS=30
+
+              echo "🚀 Starting MinIO backup: $BACKUP_NAME"
+
+              # Configurer l'alias MinIO
+              mc alias set local http://minio.storage.svc.cluster.local:9000 minio minio123
+
+              # Lister les buckets avant sauvegarde
+              echo "📋 Available buckets:"
+              mc ls local/
+
+              # Créer une sauvegarde complète de tous les buckets
+              echo "📦 Creating MinIO backup..."
+
+              # Pour chaque bucket, créer une sauvegarde
+              for bucket in $(mc ls local/ | awk '{print $5}'); do
+                echo "📦 Backing up bucket: $bucket"
+
+                # Créer un backup compressé du bucket
+                mc find local/$bucket --name "*" | \
+                mc cat - | \
+                gzip > /tmp/${bucket}_${TIMESTAMP}.tar.gz
+
+                # Calculer le checksum
+                CHECKSUM=$(sha256sum /tmp/${bucket}_${TIMESTAMP}.tar.gz | cut -d' ' -f1)
+                echo "$CHECKSUM  ${bucket}_${TIMESTAMP}.tar.gz" > /tmp/${bucket}_${TIMESTAMP}.sha256
+
+                # Déplacer vers le stockage de sauvegarde
+                mv /tmp/${bucket}_${TIMESTAMP}.tar.gz /backup/
+                mv /tmp/${bucket}_${TIMESTAMP}.sha256 /backup/
+
+                BUCKET_SIZE=$(du -h /backup/${bucket}_${TIMESTAMP}.tar.gz | cut -f1)
+                echo "✅ Bucket $bucket backed up: $BUCKET_SIZE"
+              done
+
+              # Nettoyer les anciennes sauvegardes
+              echo "🧹 Cleaning old MinIO backups (retention: ${RETENTION_DAYS} days)..."
+              find /backup -name "minio_backup_*.tar.gz" -mtime +$RETENTION_DAYS -delete
+              find /backup -name "minio_backup_*.sha256" -mtime +$RETENTION_DAYS -delete
+
+              # Lister les sauvegardes restantes
+              echo "📋 Current MinIO backups:"
+              ls -la /backup/minio_backup_*.tar.gz 2>/dev/null || echo "No backups found"
+
+              # Calculer l'espace total utilisé
+              TOTAL_SIZE=$(du -sh /backup 2>/dev/null | cut -f1 || echo "0")
+              echo "💾 Total backup storage used: $TOTAL_SIZE"
+
+              # Métriques pour Prometheus
+              BACKUP_COUNT=$(ls /backup/minio_backup_*.tar.gz 2>/dev/null | wc -l)
+              echo "# HELP minio_backup_success Backup success status" > /tmp/minio_backup.prom
+              echo "# TYPE minio_backup_success gauge" >> /tmp/minio_backup.prom
+              echo "minio_backup_success 1" >> /tmp/minio_backup.prom
+              echo "# HELP minio_backup_count Number of backup files" >> /tmp/minio_backup.prom
+              echo "# TYPE minio_backup_count gauge" >> /tmp/minio_backup.prom
+              echo "minio_backup_count $BACKUP_COUNT" >> /tmp/minio_backup.prom
+
+              echo "✅ MinIO backup completed successfully"
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backup
+            - name: tmp-storage
+              mountPath: /tmp
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: backup-pvc
+          - name: tmp-storage
+            emptyDir: {}
+          restartPolicy: OnFailure
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: feast-backup-cron
+  namespace: default
+spec:
+  schedule: "0 */4 * * *"  # Toutes les 4 heures
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: feast-backup
+            image: minio/mc:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              # Configuration Feast
+              TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+              BACKUP_NAME="feast_registry_${TIMESTAMP}"
+              RETENTION_DAYS=14
+
+              echo "🚀 Starting Feast registry backup: $BACKUP_NAME"
+
+              # Configurer l'alias MinIO pour Feast
+              mc alias set feast http://minio.storage.svc.cluster.local:9000 minio minio123
+
+              # Lister le contenu du registry Feast
+              echo "📋 Feast registry contents:"
+              mc ls feast/data-lake/feast/ || echo "Registry not found"
+
+              # Créer une sauvegarde du registry Feast
+              echo "📦 Backing up Feast registry..."
+
+              # Copier le registry vers le backup
+              mc cp --recursive feast/data-lake/feast/ /tmp/feast_backup/
+
+              # Compresser
+              cd /tmp && tar -czf ${BACKUP_NAME}.tar.gz feast_backup/
+
+              # Calculer le checksum
+              CHECKSUM=$(sha256sum ${BACKUP_NAME}.tar.gz | cut -d' ' -f1)
+              echo "$CHECKSUM  ${BACKUP_NAME}.tar.gz" > ${BACKUP_NAME}.sha256
+
+              # Déplacer vers le stockage de sauvegarde
+              mv ${BACKUP_NAME}.tar.gz /backup/
+              mv ${BACKUP_NAME}.sha256 /backup/
+
+              BACKUP_SIZE=$(du -h /backup/${BACKUP_NAME}.tar.gz | cut -f1)
+              echo "✅ Feast registry backed up: $BACKUP_SIZE"
+
+              # Nettoyer les anciennes sauvegardes Feast
+              echo "🧹 Cleaning old Feast backups (retention: ${RETENTION_DAYS} days)..."
+              find /backup -name "feast_registry_*.tar.gz" -mtime +$RETENTION_DAYS -delete
+              find /backup -name "feast_registry_*.sha256" -mtime +$RETENTION_DAYS -delete
+
+              # Lister les sauvegardes restantes
+              echo "📋 Current Feast backups:"
+              ls -la /backup/feast_registry_*.tar.gz 2>/dev/null || echo "No Feast backups found"
+
+              # Métriques pour Prometheus
+              FEAST_BACKUP_COUNT=$(ls /backup/feast_registry_*.tar.gz 2>/dev/null | wc -l)
+              echo "# HELP feast_backup_success Backup success status" > /tmp/feast_backup.prom
+              echo "# TYPE feast_backup_success gauge" >> /tmp/feast_backup.prom
+              echo "feast_backup_success 1" >> /tmp/feast_backup.prom
+              echo "# HELP feast_backup_count Number of Feast backup files" >> /tmp/feast_backup.prom
+              echo "# TYPE feast_backup_count gauge" >> /tmp/feast_backup.prom
+              echo "feast_backup_count $FEAST_BACKUP_COUNT" >> /tmp/feast_backup.prom
+
+              # Nettoyer les fichiers temporaires
+              rm -rf /tmp/feast_backup/
+
+              echo "✅ Feast registry backup completed successfully"
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backup
+            - name: tmp-storage
+              mountPath: /tmp
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: backup-pvc
+          - name: tmp-storage
+            emptyDir: {}
+          restartPolicy: OnFailure
