@@ -1,0 +1,690 @@
+# Production values for MLOps Scoring Platform
+# This file contains production-ready configurations
+
+# Global production settings
+global:
+  imageRegistry: "123456789012.dkr.ecr.us-east-1.amazonaws.com"
+  imagePullSecrets:
+    - name: ecr-registry-secret
+  storageClass: "gp3"
+  domain: "company.com"
+
+  # Production security settings
+  security:
+    tls: true
+    mTLS: true
+    networkPolicies: true
+    podSecurityStandards: true
+
+  # Production monitoring
+  monitoring:
+    enabled: true
+    prometheus: true
+    grafana: true
+    loki: true
+    alertmanager: true
+
+  # Production logging
+  logging:
+    level: "INFO"
+    format: "json"
+    loki: true
+    promtail: true
+
+# Application production settings
+application:
+  name: mlops-scoring-platform
+  version: "1.0.0"
+  environment: production
+
+# Production API Gateway
+apiGateway:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: "123456789012.dkr.ecr.us-east-1.amazonaws.com/scoring-api-gateway"
+    tag: "v1.0.0-prod"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "300m"
+    limits:
+      memory: "1Gi"
+      cpu: "800m"
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 15
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+# Production Scoring API
+scoringAPI:
+  enabled: true
+  replicaCount: 5
+  image:
+    repository: "123456789012.dkr.ecr.us-east-1.amazonaws.com/scoring-api"
+    tag: "v1.0.0-prod"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "800m"
+    limits:
+      memory: "2Gi"
+      cpu: "1500m"
+  autoscaling:
+    enabled: true
+    minReplicas: 5
+    maxReplicas: 25
+    targetCPUUtilizationPercentage: 75
+    targetMemoryUtilizationPercentage: 85
+  model:
+    cache:
+      enabled: true
+      size: "4Gi"
+    monitoring:
+      driftDetection: true
+      performanceMetrics: true
+
+# Production MLflow
+mlflow:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: "123456789012.dkr.ecr.us-east-1.amazonaws.com/mlflow-server"
+    tag: "v1.0.0-prod"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 5000
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+  database:
+    host: postgresql
+    port: 5432
+    database: mlflow
+  storage:
+    type: minio
+    endpoint: minio:9000
+    bucket: mlflow-artifacts
+
+# Production Feast Feature Store
+feast:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: "123456789012.dkr.ecr.us-east-1.amazonaws.com/feast-feature-server"
+    tag: "v1.0.0-prod"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 6566
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "1000m"
+    limits:
+      memory: "4Gi"
+      cpu: "2000m"
+  redis:
+    host: redis-master
+    port: 6379
+
+# Production Spark
+spark:
+  enabled: true
+  master:
+    replicaCount: 1
+    image:
+      repository: apache/spark
+      tag: "3.5.0-scala2.12-java17-python3-ubuntu"
+    service:
+      type: ClusterIP
+      port: 7077
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "1000m"
+      limits:
+        memory: "4Gi"
+        cpu: "2000m"
+  worker:
+    replicaCount: 5
+    image:
+      repository: apache/spark
+      tag: "3.5.0-scala2.12-java17-python3-ubuntu"
+    resources:
+      requests:
+        memory: "4Gi"
+        cpu: "2000m"
+      limits:
+        memory: "8Gi"
+        cpu: "4000m"
+
+# Production Kafka
+kafka:
+  enabled: true
+  replicaCount: 5
+  persistence:
+    enabled: true
+    size: 500Gi
+    storageClass: "gp3"
+  zookeeper:
+    replicaCount: 3
+    persistence:
+      enabled: true
+      size: 100Gi
+      storageClass: "gp3"
+  metrics:
+    kafka:
+      enabled: true
+    jmx:
+      enabled: true
+  resources:
+    requests:
+      memory: "4Gi"
+      cpu: "2000m"
+    limits:
+      memory: "8Gi"
+      cpu: "4000m"
+  heapOpts: "-Xmx4g -Xms4g"
+
+# Production PostgreSQL
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "CHANGE_THIS_STRONG_PASSWORD"
+    username: "mlops"
+    password: "CHANGE_THIS_STRONG_PASSWORD"
+    database: "mlops"
+  architecture: replication
+  primary:
+    persistence:
+      enabled: true
+      size: 500Gi
+      storageClass: "gp3"
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "1000m"
+      limits:
+        memory: "4Gi"
+        cpu: "2000m"
+    initdb:
+      scripts:
+        init.sql: |
+          CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+          CREATE EXTENSION IF NOT EXISTS "pg_stat_statements";
+  readReplicas:
+    replicaCount: 2
+    persistence:
+      enabled: true
+      size: 200Gi
+      storageClass: "gp3"
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+
+# Production Redis
+redis:
+  enabled: true
+  architecture: replication
+  auth:
+    enabled: true
+    password: "CHANGE_THIS_STRONG_PASSWORD"
+  master:
+    persistence:
+      enabled: true
+      size: 100Gi
+      storageClass: "gp3"
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+  replica:
+    replicaCount: 3
+    persistence:
+      enabled: true
+      size: 50Gi
+      storageClass: "gp3"
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+
+# Production MinIO
+minio:
+  enabled: true
+  mode: distributed
+  replicaCount: 4
+  persistence:
+    enabled: true
+    size: 1Ti
+    storageClass: "gp3"
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "1000m"
+    limits:
+      memory: "4Gi"
+      cpu: "2000m"
+  buckets:
+    - name: mlflow-artifacts
+      policy: none
+      purge: false
+    - name: data-lake
+      policy: none
+      purge: false
+    - name: backups
+      policy: none
+      purge: false
+    - name: logs
+      policy: none
+      purge: false
+
+# Production Prometheus
+prometheus:
+  enabled: true
+  server:
+    replicaCount: 2
+    persistence:
+      enabled: true
+      size: 100Gi
+      storageClass: "gp3"
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "1000m"
+      limits:
+        memory: "4Gi"
+        cpu: "2000m"
+    retention: "30d"
+    retentionSize: "50GB"
+  alertmanager:
+    enabled: true
+    persistence:
+      enabled: true
+      size: 20Gi
+      storageClass: "gp3"
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+  nodeExporter:
+    enabled: true
+  kubeStateMetrics:
+    enabled: true
+  prometheusOperator:
+    enabled: true
+
+# Production Grafana
+grafana:
+  enabled: true
+  adminPassword: "CHANGE_THIS_STRONG_PASSWORD"
+  persistence:
+    enabled: true
+    size: 50Gi
+    storageClass: "gp3"
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+  datasources:
+    prometheus:
+      enabled: true
+      url: http://prometheus-server
+    loki:
+      enabled: true
+      url: http://loki:3100
+  dashboards:
+    mlops:
+      enabled: true
+  alerting:
+    enabled: true
+
+# Production Loki
+loki:
+  enabled: true
+  persistence:
+    enabled: true
+    size: 200Gi
+    storageClass: "gp3"
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+  config:
+    auth_enabled: false
+    chunk_store_config:
+      max_look_back_period: 0s
+    limits_config:
+      max_query_length: 721h
+      ingestion_rate_mb: 10
+      ingestion_burst_size_mb: 20
+      max_streams_per_user: 10000
+      max_global_streams_per_user: 5000
+    schema_config:
+      configs:
+      - from: 2020-10-24
+        store: boltdb-shipper
+        object_store: filesystem
+        schema: v11
+        index:
+          prefix: index_
+          period: 24h
+    server:
+      http_listen_port: 3100
+      grpc_listen_port: 9096
+    storage_config:
+      boltdb_shipper:
+        active_index_directory: /tmp/loki/boltdb-shipper-active
+        cache_location: /tmp/loki/boltdb-shipper-cache
+        cache_ttl: 24h
+        shared_store: filesystem
+      filesystem:
+        directory: /tmp/loki/chunks
+    table_manager:
+      retention_deletes_enabled: true
+      retention_period: 90d
+
+# Production Promtail
+promtail:
+  enabled: true
+  config:
+    clients:
+      - url: http://loki:3100/loki/api/v1/push
+        timeout: 10s
+        retry_on_failure: true
+    scrape_configs:
+      - job_name: kubernetes-pods
+        kubernetes_sd_configs:
+          - role: pod
+        pipeline_stages:
+          - cri: {}
+        relabel_configs:
+          - source_labels:
+              - __meta_kubernetes_pod_name
+            target_label: pod_name
+          - source_labels:
+              - __meta_kubernetes_namespace
+            target_label: namespace
+          - action: replace
+            replacement: kubernetes-pods
+            target_label: job
+
+# Production Ingress NGINX
+ingress-nginx:
+  enabled: true
+  controller:
+    replicaCount: 3
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+    config:
+      use-forwarded-headers: "true"
+      proxy-real-ip-cidr: "0.0.0.0/0"
+      proxy-body-size: "100m"
+      proxy-read-timeout: "300"
+      proxy-send-timeout: "300"
+      ssl-redirect: "true"
+      force-ssl-redirect: "true"
+      server-tokens: "false"
+      client-max-body-size: "100m"
+      proxy-buffer-size: "16k"
+      proxy-buffers: "32 16k"
+    service:
+      type: LoadBalancer
+      annotations:
+        service.beta.kubernetes.io/aws-load-balancer-type: nlb
+        service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+        service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "arn:aws:acm:us-east-1:123456789012:certificate/certificate-id"
+        service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
+        service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "http"
+
+# Production Istio
+istio:
+  enabled: true
+  version: "1.18.0"
+  ingressGateway:
+    enabled: true
+    replicaCount: 3
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+    service:
+      type: LoadBalancer
+      annotations:
+        service.beta.kubernetes.io/aws-load-balancer-type: nlb
+  egressGateway:
+    enabled: true
+    replicaCount: 2
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+
+# Production Cert Manager
+certManager:
+  enabled: true
+  installCRDs: true
+  webhook:
+    enabled: true
+  cainjector:
+    enabled: true
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "200m"
+
+# Production External DNS
+externalDNS:
+  enabled: true
+  provider: aws
+  domainFilters:
+    - company.com
+  policy: sync
+  txtOwnerId: mlops-platform
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "50m"
+    limits:
+      memory: "256Mi"
+      cpu: "100m"
+
+# Production Velero (Backup)
+velero:
+  enabled: true
+  configuration:
+    provider: aws
+    backupStorageLocation:
+      name: default
+      bucket: mlops-production-backups
+      config:
+        region: us-east-1
+        s3Url: ""
+        s3ForcePathStyle: "false"
+    volumeSnapshotLocation:
+      name: default
+      config:
+        region: us-east-1
+  schedules:
+    hourly-backup:
+      schedule: "0 * * * *"
+      template:
+        includedNamespaces:
+          - default
+          - kafka
+          - monitoring
+          - security
+        ttl: 168h0m0s
+    daily-backup:
+      schedule: "0 2 * * *"
+      template:
+        includedNamespaces:
+          - default
+          - kafka
+          - monitoring
+          - security
+        ttl: 720h0m0s
+    weekly-backup:
+      schedule: "0 3 * * 0"
+      template:
+        includedNamespaces:
+          - default
+          - kafka
+          - monitoring
+          - security
+        ttl: 2160h0m0s
+
+# Production ArgoCD (GitOps)
+argocd:
+  enabled: true
+  server:
+    replicas: 2
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+  repoServer:
+    replicas: 2
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+  redis:
+    enabled: true
+  dex:
+    enabled: false
+  configs:
+    repositories:
+      mlops-repo:
+        url: https://github.com/company/mlops-scoring-platform
+        type: git
+        passwordSecret:
+          key: password
+          name: argocd-repo-secret
+        usernameSecret:
+          key: username
+          name: argocd-repo-secret
+    applications:
+      mlops-platform:
+        project: default
+        source:
+          repoURL: https://github.com/company/mlops-scoring-platform
+          targetRevision: HEAD
+          path: production/helm-chart
+          helm:
+            valueFiles:
+              - values-production.yaml
+        destination:
+          server: https://kubernetes.default.svc
+          namespace: default
+        syncPolicy:
+          automated:
+            prune: true
+            selfHeal: true
+            allowEmpty: false
+          syncOptions:
+            - CreateNamespace=true
+            - PrunePropagationPolicy=foreground
+            - PruneLast=true
+          retry:
+            limit: 5
+            backoff:
+              duration: 5s
+              factor: 2
+              maxDuration: 3m
+
+# Production Security configurations
+security:
+  networkPolicies: true
+  podSecurityStandards: true
+  secretsManagement: true
+  intrusionDetection: true
+  compliance: true
+
+# Production Resource limits
+resources:
+  limits:
+    cpu: "8000m"
+    memory: "16Gi"
+  requests:
+    cpu: "2000m"
+    memory: "4Gi"
+
+# Production Node selectors and tolerations
+nodeSelector:
+  environment: production
+  node-type: application
+
+tolerations:
+  - key: "dedicated"
+    operator: "Equal"
+    value: "mlops"
+    effect: "NoSchedule"
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app
+            operator: In
+            values:
+            - scoring-api
+        topologyKey: kubernetes.io/hostname

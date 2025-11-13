@@ -1,0 +1,567 @@
+# Default values for mlops-scoring-platform.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Global configuration
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+  domain: "company.com"
+
+  # Security settings
+  security:
+    tls: true
+    mTLS: true
+    networkPolicies: true
+    podSecurityStandards: true
+
+  # Monitoring
+  monitoring:
+    enabled: true
+    prometheus: true
+    grafana: true
+    loki: true
+    alertmanager: true
+
+  # Logging
+  logging:
+    level: "INFO"
+    format: "json"
+    loki: true
+    promtail: true
+
+# Application settings
+application:
+  name: mlops-scoring-platform
+  version: "1.0.0"
+  environment: production
+
+# API Gateway
+apiGateway:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: scoring-api-gateway
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "200m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+# Scoring API
+scoringAPI:
+  enabled: true
+  replicaCount: 5
+  image:
+    repository: scoring-api
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 75
+    targetMemoryUtilizationPercentage: 85
+  model:
+    cache:
+      enabled: true
+      size: "2Gi"
+    monitoring:
+      driftDetection: true
+      performanceMetrics: true
+
+# MLflow
+mlflow:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: mlflow-server
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 5000
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "200m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  database:
+    host: postgresql
+    port: 5432
+    database: mlflow
+  storage:
+    type: minio
+    endpoint: minio:9000
+    bucket: mlflow-artifacts
+
+# Feast Feature Store
+feast:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: feast-feature-server
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 6566
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "300m"
+    limits:
+      memory: "1Gi"
+      cpu: "600m"
+  redis:
+    host: redis-master
+    port: 6379
+
+# Spark
+spark:
+  enabled: true
+  master:
+    replicaCount: 1
+    image:
+      repository: apache/spark
+      tag: "3.5.0-scala2.12-java17-python3-ubuntu"
+    service:
+      type: ClusterIP
+      port: 7077
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+  worker:
+    replicaCount: 3
+    image:
+      repository: apache/spark
+      tag: "3.5.0-scala2.12-java17-python3-ubuntu"
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "1000m"
+      limits:
+        memory: "4Gi"
+        cpu: "2000m"
+
+# Kafka
+kafka:
+  enabled: true
+  replicaCount: 3
+  persistence:
+    enabled: true
+    size: 100Gi
+  zookeeper:
+    replicaCount: 3
+    persistence:
+      enabled: true
+      size: 50Gi
+  metrics:
+    kafka:
+      enabled: true
+    jmx:
+      enabled: true
+
+# PostgreSQL
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "changeMe123"
+    username: "mlops"
+    password: "changeMe123"
+    database: "mlops"
+  architecture: replication
+  primary:
+    persistence:
+      enabled: true
+      size: 100Gi
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+  readReplicas:
+    persistence:
+      enabled: true
+      size: 50Gi
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "125m"
+      limits:
+        memory: "512Mi"
+        cpu: "250m"
+
+# Redis
+redis:
+  enabled: true
+  architecture: replication
+  auth:
+    enabled: true
+    password: "changeMe123"
+  master:
+    persistence:
+      enabled: true
+      size: 50Gi
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "200m"
+  replica:
+    replicaCount: 3
+    persistence:
+      enabled: true
+      size: 25Gi
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "50m"
+      limits:
+        memory: "256Mi"
+        cpu: "100m"
+
+# MinIO
+minio:
+  enabled: true
+  mode: distributed
+  replicaCount: 4
+  persistence:
+    enabled: true
+    size: 500Gi
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  buckets:
+    - name: mlflow-artifacts
+      policy: none
+      purge: false
+    - name: data-lake
+      policy: none
+      purge: false
+    - name: backups
+      policy: none
+      purge: false
+
+# Prometheus
+prometheus:
+  enabled: true
+  server:
+    replicaCount: 2
+    persistence:
+      enabled: true
+      size: 50Gi
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "200m"
+      limits:
+        memory: "1Gi"
+        cpu: "400m"
+  alertmanager:
+    enabled: true
+    persistence:
+      enabled: true
+      size: 10Gi
+  nodeExporter:
+    enabled: true
+  kubeStateMetrics:
+    enabled: true
+  prometheusOperator:
+    enabled: true
+
+# Grafana
+grafana:
+  enabled: true
+  adminPassword: "changeMe123"
+  persistence:
+    enabled: true
+    size: 20Gi
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "200m"
+  datasources:
+    prometheus:
+      enabled: true
+      url: http://prometheus-server
+    loki:
+      enabled: true
+      url: http://loki:3100
+
+# Loki
+loki:
+  enabled: true
+  persistence:
+    enabled: true
+    size: 100Gi
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "200m"
+  config:
+    auth_enabled: false
+    chunk_store_config:
+      max_look_back_period: 0s
+    limits_config:
+      max_query_length: 721h
+      ingestion_rate_mb: 4
+      ingestion_burst_size_mb: 6
+    schema_config:
+      configs:
+      - from: 2020-10-24
+        store: boltdb-shipper
+        object_store: filesystem
+        schema: v11
+        index:
+          prefix: index_
+          period: 24h
+    server:
+      http_listen_port: 3100
+    storage_config:
+      boltdb_shipper:
+        active_index_directory: /tmp/loki/boltdb-shipper-active
+        cache_location: /tmp/loki/boltdb-shipper-cache
+        cache_ttl: 24h
+        shared_store: filesystem
+      filesystem:
+        directory: /tmp/loki/chunks
+    table_manager:
+      retention_deletes_enabled: true
+      retention_period: 30d
+
+# Promtail
+promtail:
+  enabled: true
+  config:
+    clients:
+      - url: http://loki:3100/loki/api/v1/push
+    scrape_configs:
+      - job_name: kubernetes-pods
+        kubernetes_sd_configs:
+          - role: pod
+        pipeline_stages:
+          - cri: {}
+        relabel_configs:
+          - source_labels:
+              - __meta_kubernetes_pod_name
+            target_label: pod_name
+          - source_labels:
+              - __meta_kubernetes_namespace
+            target_label: namespace
+          - action: replace
+            replacement: kubernetes-pods
+            target_label: job
+
+# Ingress NGINX
+ingress-nginx:
+  enabled: true
+  controller:
+    replicaCount: 2
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "200m"
+    config:
+      use-forwarded-headers: "true"
+      proxy-real-ip-cidr: "0.0.0.0/0"
+      proxy-body-size: "100m"
+      proxy-read-timeout: "300"
+      proxy-send-timeout: "300"
+    service:
+      type: LoadBalancer
+      annotations:
+        service.beta.kubernetes.io/aws-load-balancer-type: nlb
+        service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+        service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "arn:aws:acm:region:account:certificate/certificate-id"
+
+# Istio
+istio:
+  enabled: true
+  version: "1.18.0"
+  ingressGateway:
+    enabled: true
+    replicaCount: 2
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "200m"
+      limits:
+        memory: "1Gi"
+        cpu: "400m"
+  egressGateway:
+    enabled: true
+    replicaCount: 2
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "200m"
+
+# Cert Manager
+certManager:
+  enabled: true
+  installCRDs: true
+  webhook:
+    enabled: true
+  cainjector:
+    enabled: true
+
+# External DNS
+externalDNS:
+  enabled: true
+  provider: aws
+  domainFilters:
+    - company.com
+  policy: sync
+  txtOwnerId: mlops-platform
+
+# Velero (Backup)
+velero:
+  enabled: true
+  configuration:
+    provider: aws
+    backupStorageLocation:
+      name: default
+      bucket: mlops-backups
+      config:
+        region: us-east-1
+    volumeSnapshotLocation:
+      name: default
+      config:
+        region: us-east-1
+  schedules:
+    daily-backup:
+      schedule: "0 1 * * *"
+      template:
+        includedNamespaces:
+          - default
+          - kafka
+          - monitoring
+          - security
+        ttl: 720h0m0s
+    weekly-backup:
+      schedule: "0 2 * * 0"
+      template:
+        includedNamespaces:
+          - default
+          - kafka
+          - monitoring
+          - security
+        ttl: 2160h0m0s
+
+# ArgoCD (GitOps)
+argocd:
+  enabled: true
+  server:
+    replicas: 2
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "200m"
+  repoServer:
+    replicas: 2
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "200m"
+  redis:
+    enabled: true
+  dex:
+    enabled: false
+  configs:
+    repositories:
+      mlops-repo:
+        url: https://github.com/company/mlops-scoring-platform
+        type: git
+    applications:
+      mlops-platform:
+        project: default
+        source:
+          repoURL: https://github.com/company/mlops-scoring-platform
+          targetRevision: HEAD
+          path: production/helm-chart
+        destination:
+          server: https://kubernetes.default.svc
+          namespace: default
+        syncPolicy:
+          automated:
+            prune: true
+            selfHeal: true
+
+# Security configurations
+security:
+  networkPolicies: true
+  podSecurityStandards: true
+  secretsManagement: true
+  intrusionDetection: true
+  compliance: true
+
+# Resource limits
+resources:
+  limits:
+    cpu: "4000m"
+    memory: "8Gi"
+  requests:
+    cpu: "1000m"
+    memory: "2Gi"
+
+# Node selectors and tolerations
+nodeSelector: {}
+tolerations: []
+affinity: {}

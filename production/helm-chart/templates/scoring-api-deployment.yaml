@@ -1,0 +1,156 @@
+{{- if .Values.scoringAPI.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mlops-scoring-platform.fullname" . }}-scoring-api
+  labels:
+    {{- include "mlops-scoring-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: scoring-api
+spec:
+  {{- if not .Values.scoringAPI.autoscaling.enabled }}
+  replicas: {{ .Values.scoringAPI.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "mlops-scoring-platform.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: scoring-api
+  template:
+    metadata:
+      labels:
+        {{- include "mlops-scoring-platform.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: scoring-api
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/scoring-api-configmap.yaml") . | sha256sum }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      {{- with .Values.scoringAPI.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.scoringAPI.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.scoringAPI.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "mlops-scoring-platform.serviceAccountName" . }}
+      securityContext:
+        runAsUser: 1001
+        runAsGroup: 1001
+        runAsNonRoot: true
+        fsGroup: 1001
+      containers:
+        - name: scoring-api
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1001
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          image: "{{ .Values.scoringAPI.image.repository }}:{{ .Values.scoringAPI.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.scoringAPI.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: ENVIRONMENT
+              value: "{{ .Values.application.environment }}"
+            - name: LOG_LEVEL
+              value: "{{ .Values.global.logging.level }}"
+            - name: LOG_FORMAT
+              value: "{{ .Values.global.logging.format }}"
+            - name: POSTGRES_HOST
+              value: "{{ include "mlops-scoring-platform.postgresql.fullname" . }}"
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mlops-scoring-platform.fullname" . }}-postgresql
+                  key: database
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mlops-scoring-platform.fullname" . }}-postgresql
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mlops-scoring-platform.fullname" . }}-postgresql
+                  key: password
+            - name: REDIS_HOST
+              value: "{{ include "mlops-scoring-platform.redis.fullname" . }}-master"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mlops-scoring-platform.redis.fullname" . }}
+                  key: redis-password
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "{{ include "mlops-scoring-platform.kafka.fullname" . }}:9092"
+            - name: MINIO_ENDPOINT
+              value: "{{ include "mlops-scoring-platform.minio.fullname" . }}:9000"
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mlops-scoring-platform.minio.fullname" . }}
+                  key: access-key
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mlops-scoring-platform.minio.fullname" . }}
+                  key: secret-key
+            - name: MLFLOW_TRACKING_URI
+              value: "http://{{ include "mlops-scoring-platform.fullname" . }}-mlflow:5000"
+            - name: FEAST_FEATURE_STORE_URL
+              value: "{{ include "mlops-scoring-platform.fullname" . }}-feast:6566"
+            - name: MODEL_CACHE_SIZE
+              value: "{{ .Values.scoringAPI.model.cache.size }}"
+            - name: ENABLE_DRIFT_DETECTION
+              value: "{{ .Values.scoringAPI.model.monitoring.driftDetection }}"
+            - name: ENABLE_PERFORMANCE_METRICS
+              value: "{{ .Values.scoringAPI.model.monitoring.performanceMetrics }}"
+            - name: PROMETHEUS_MULTIPROC_DIR
+              value: "/tmp"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.scoringAPI.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp-volume
+              mountPath: /tmp
+            - name: model-cache
+              mountPath: /app/models/cache
+      volumes:
+        - name: tmp-volume
+          emptyDir: {}
+        - name: model-cache
+          emptyDir:
+            sizeLimit: {{ .Values.scoringAPI.model.cache.size }}
+      {{- include "mlops-scoring-platform.imagePullSecrets" . | indent 6 }}
+{{- end }}
