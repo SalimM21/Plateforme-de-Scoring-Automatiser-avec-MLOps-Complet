@@ -1,0 +1,332 @@
+# Alertes basées sur les logs pour Loki
+# À ajouter aux règles Loki Ruler
+
+groups:
+  - name: log_based_alerts
+    rules:
+      # ===== ERREURS APPLICATIONS =====
+      - alert: ScoringAPIErrorLogs
+        expr: |
+          sum(rate({component="scoring-api", level=~"ERROR|FATAL|CRITICAL"}[5m])) > 0
+        for: 2m
+        labels:
+          severity: critical
+          component: scoring-api
+          type: application_error
+        annotations:
+          summary: "Erreurs détectées dans les logs Scoring API"
+          description: "Plusieurs erreurs détectées dans les logs de l'API de scoring"
+          runbook_url: "https://docs.company.com/runbooks/scoring-api-errors"
+
+      - alert: APIHighErrorRate
+        expr: |
+          rate({component="api-gateway", level="ERROR"}[5m]) /
+          rate({component="api-gateway"}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: api-gateway
+          type: error_rate
+        annotations:
+          summary: "Taux d'erreur élevé dans API Gateway"
+          description: "Le taux d'erreur de l'API Gateway dépasse 5%"
+
+      - alert: MLflowErrors
+        expr: |
+          sum(rate({component="mlflow", level=~"ERROR|CRITICAL"}[5m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: mlflow
+          type: ml_error
+        annotations:
+          summary: "Erreurs MLflow détectées"
+          description: "Erreurs critiques dans les logs MLflow"
+
+      # ===== ERREURS INFRASTRUCTURE =====
+      - alert: KafkaBrokerErrors
+        expr: |
+          sum(rate({component="kafka", level="ERROR"}[5m])) by (pod_name) > 5
+        for: 3m
+        labels:
+          severity: critical
+          component: kafka
+          type: infrastructure_error
+        annotations:
+          summary: "Erreurs Kafka détectées"
+          description: "Plusieurs erreurs dans les logs Kafka"
+
+      - alert: DatabaseConnectionErrors
+        expr: |
+          sum(rate({component="postgresql", message=~".*connection.*failed.*|.*FATAL.*"}[5m])) > 0
+        for: 2m
+        labels:
+          severity: critical
+          component: postgresql
+          type: database_error
+        annotations:
+          summary: "Erreurs de connexion base de données"
+          description: "Échecs de connexion détectés dans PostgreSQL"
+
+      - alert: RedisErrors
+        expr: |
+          sum(rate({component="redis", message=~".*ERR.*|.*DENIED.*"}[5m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+          component: redis
+          type: cache_error
+        annotations:
+          summary: "Erreurs Redis détectées"
+          description: "Erreurs dans le cache Redis"
+
+      # ===== ERREURS SÉCURITÉ =====
+      - alert: AuthenticationFailures
+        expr: |
+          sum(rate({component="keycloak", message=~".*authentication.*failed.*|.*login.*failed.*"}[5m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: keycloak
+          type: security_event
+        annotations:
+          summary: "Échecs d'authentification multiples"
+          description: "Plus de 10 échecs d'authentification en 5 minutes"
+
+      - alert: SecurityViolations
+        expr: |
+          sum(rate({message=~".*unauthorized.*|.*forbidden.*|.*security.*violation.*"}[5m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: security
+          type: security_violation
+        annotations:
+          summary: "Violation de sécurité détectée"
+          description: "Accès non autorisé ou violation de sécurité détectée"
+
+      - alert: DataExfiltrationAttempt
+        expr: |
+          sum(rate({message=~".*suspicious.*download.*|.*large.*export.*|.*data.*leak.*"}[5m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: security
+          type: data_exfiltration
+        annotations:
+          summary: "Tentative d'exfiltration de données"
+          description: "Activité suspecte de téléchargement de données détectée"
+
+      # ===== ERREURS PERFORMANCE =====
+      - alert: SlowQueriesDetected
+        expr: |
+          sum(rate({component="postgresql", message=~".*duration.*>.*1000.*|.*slow.*query.*"}[5m])) > 0
+        for: 3m
+        labels:
+          severity: warning
+          component: postgresql
+          type: performance_issue
+        annotations:
+          summary: "Requêtes lentes détectées"
+          description: "Requêtes SQL lentes (>1000ms) détectées"
+
+      - alert: MemoryIssuesDetected
+        expr: |
+          sum(rate({message=~".*OutOfMemory.*|.*memory.*exhausted.*|.*GC.*overhead.*"}[5m])) > 0
+        for: 2m
+        labels:
+          severity: critical
+          component: infrastructure
+          type: memory_issue
+        annotations:
+          summary: "Problèmes mémoire détectés"
+          description: "Erreurs de mémoire ou épuisement détecté"
+
+      - alert: HighLatencyDetected
+        expr: |
+          sum(rate({component="scoring-api", message=~".*latency.*>.*5000.*|.*timeout.*"}[5m])) > 0
+        for: 3m
+        labels:
+          severity: warning
+          component: scoring-api
+          type: latency_issue
+        annotations:
+          summary: "Latence élevée détectée"
+          description: "Latence supérieure à 5 secondes détectée"
+
+      # ===== ERREURS BUSINESS =====
+      - alert: BusinessLogicErrors
+        expr: |
+          sum(rate({component="scoring-api", message=~".*business.*error.*|.*validation.*failed.*|.*constraint.*violation.*"}[5m])) > 5
+        for: 3m
+        labels:
+          severity: warning
+          component: scoring-api
+          type: business_error
+        annotations:
+          summary: "Erreurs métier détectées"
+          description: "Erreurs de logique métier dans l'API de scoring"
+
+      - alert: DataQualityIssues
+        expr: |
+          sum(rate({message=~".*data.*quality.*|.*invalid.*data.*|.*schema.*validation.*failed.*"}[5m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+          component: data
+          type: quality_issue
+        annotations:
+          summary: "Problèmes de qualité de données"
+          description: "Erreurs de validation ou qualité de données détectées"
+
+      # ===== PATTERNS ANORMAUX =====
+      - alert: UnusualErrorPattern
+        expr: |
+          sum(rate({level="ERROR"}[1h])) > 3 * avg_over_time(sum(rate({level="ERROR"}[1h]))[7d:1h])
+        for: 5m
+        labels:
+          severity: warning
+          component: anomaly
+          type: error_spike
+        annotations:
+          summary: "Pic d'erreurs anormal détecté"
+          description: "Nombre d'erreurs 3x supérieur à la moyenne sur 7 jours"
+
+      - alert: LogVolumeAnomaly
+        expr: |
+          sum(rate({job=~".*"}[5m])) < 0.1 * avg_over_time(sum(rate({job=~".*"}[5m]))[1h])
+        for: 10m
+        labels:
+          severity: warning
+          component: anomaly
+          type: log_volume_drop
+        annotations:
+          summary: "Chute du volume de logs détectée"
+          description: "Volume de logs inférieur à 10% de la moyenne horaire"
+
+      - alert: NewErrorTypeDetected
+        expr: |
+          count(sum(rate({level="ERROR"}[5m])) by (message)) > count(sum(rate({level="ERROR"}[24h])) by (message))
+        for: 1m
+        labels:
+          severity: info
+          component: anomaly
+          type: new_error_type
+        annotations:
+          summary: "Nouveau type d'erreur détecté"
+          description: "Un nouveau pattern d'erreur a été identifié"
+
+      # ===== MONITORING DES LOGS =====
+      - alert: LokiIngestionFailing
+        expr: |
+          sum(rate(loki_distributor_bytes_received_total[5m])) == 0
+        for: 5m
+        labels:
+          severity: critical
+          component: logging
+          type: ingestion_failure
+        annotations:
+          summary: "Ingestion Loki en échec"
+          description: "Loki ne reçoit plus de logs depuis 5 minutes"
+
+      - alert: PromtailTargetsDown
+        expr: |
+          up{job="promtail"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          component: logging
+          type: collection_failure
+        annotations:
+          summary: "Promtail targets down"
+          description: "Un ou plusieurs collecteurs Promtail sont down"
+
+      - alert: LogRetentionExceeded
+        expr: |
+          (loki_storage_chunks_total - loki_storage_chunks_deleted_total) / loki_storage_chunks_total > 0.9
+        for: 10m
+        labels:
+          severity: warning
+          component: logging
+          type: storage_pressure
+        annotations:
+          summary: "Pression stockage logs élevée"
+          description: "Plus de 90% de l'espace de stockage logs utilisé"
+
+      # ===== ALERTES CORRÉLÉES =====
+      - alert: CascadingFailureDetected
+        expr: |
+          sum(rate({level="ERROR", component="scoring-api"}[5m])) > 10 and
+          sum(rate({level="ERROR", component="postgresql"}[5m])) > 5 and
+          sum(rate({level="ERROR", component="redis"}[5m])) > 3
+        for: 3m
+        labels:
+          severity: critical
+          component: system
+          type: cascading_failure
+        annotations:
+          summary: "Défaillance en cascade détectée"
+          description: "Erreurs simultanées dans API, DB et cache - défaillance en cascade"
+
+      - alert: ServiceDegradationDetected
+        expr: |
+          sum(rate({component="scoring-api", message=~".*timeout.*|.*slow.*"}[5m])) > 5 and
+          sum(rate({component="postgresql", message=~".*slow.*query.*"}[5m])) > 3
+        for: 5m
+        labels:
+          severity: warning
+          component: performance
+          type: service_degradation
+        annotations:
+          summary: "Dégradation de service détectée"
+          description: "Dégradation simultanée API + DB détectée"
+
+      # ===== ALERTES TEMPS RÉEL =====
+      - alert: RealTimeErrorSpike
+        expr: |
+          sum(rate({level="ERROR"}[1m])) > sum(rate({level="ERROR"}[10m])) / 10 * 3
+        for: 1m
+        labels:
+          severity: warning
+          component: realtime
+          type: error_spike
+        annotations:
+          summary: "Pic d'erreurs temps réel"
+          description: "Augmentation soudaine du nombre d'erreurs (3x en 1 minute)"
+
+      - alert: CriticalBusinessImpact
+        expr: |
+          sum(rate({component="scoring-api", level="ERROR", message=~".*payment.*|.*transaction.*"}[1m])) > 0
+        for: 30s
+        labels:
+          severity: critical
+          component: business
+          type: business_impact
+        annotations:
+          summary: "Impact business critique détecté"
+          description: "Erreur affectant les paiements/transactions détectée"
+
+      # ===== ALERTES PRÉDICTIVES BASÉES LOGS =====
+      - alert: PredictedLogVolumeIncrease
+        expr: |
+          predict_linear(sum(rate({job=~".*"}[5m])), 3600) > sum(rate({job=~".*"}[5m])) * 2
+        for: 10m
+        labels:
+          severity: info
+          component: predictive
+          type: log_volume_prediction
+        annotations:
+          summary: "Augmentation volume logs prédite"
+          description: "Volume de logs pourrait doubler dans l'heure"
+
+      - alert: PredictedErrorRateIncrease
+        expr: |
+          predict_linear(sum(rate({level="ERROR"}[5m])), 1800) > sum(rate({level="ERROR"}[5m])) * 1.5
+        for: 10m
+        labels:
+          severity: warning
+          component: predictive
+          type: error_rate_prediction
+        annotations:
+          summary: "Augmentation taux erreurs prédite"
+          description: "Taux d'erreurs pourrait augmenter de 50% dans 30 minutes"

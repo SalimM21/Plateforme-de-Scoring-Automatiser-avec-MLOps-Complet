@@ -1,0 +1,527 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Centralized Logging Dashboard",
+    "tags": ["logging", "loki", "logs", "observability"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Log Volume Overview",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "sum(rate({job=~\"$job\"}[$__interval])) by (job)",
+            "legendFormat": "{{job}}",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [
+          {
+            "unit": "reqps",
+            "min": 0
+          },
+          {
+            "unit": "short"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": 2,
+        "title": "Error Rate by Component",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "sum(rate({level=~\"ERROR|FATAL|CRITICAL\", job=~\"$job\"}[$__interval])) by (component)",
+            "legendFormat": "{{component}}",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [
+          {
+            "unit": "reqps",
+            "min": 0
+          },
+          {
+            "unit": "short"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 0
+        }
+      },
+      {
+        "id": 3,
+        "title": "Recent Error Logs",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{level=~\"ERROR|FATAL|CRITICAL\", job=~\"$job\"} |~ \"$search\" | line_format \"{{.component}}[{{.pod_name}}]: {{.message}}\"",
+            "legendFormat": "",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showTime": true,
+          "showLabels": false,
+          "showCommonLabels": false,
+          "wrapLogMessage": true,
+          "prettifyLogMessage": true,
+          "enableLogDetails": true,
+          "dedupStrategy": "none",
+          "sortOrder": "Descending"
+        },
+        "gridPos": {
+          "h": 12,
+          "w": 24,
+          "x": 0,
+          "y": 8
+        }
+      },
+      {
+        "id": 4,
+        "title": "Application Logs Explorer",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{component=\"$component\", job=~\"$job\"} |~ \"$search\" | json | line_format \"[{{.level}}] {{.timestamp}} {{.message}}\"",
+            "legendFormat": "",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showTime": true,
+          "showLabels": true,
+          "showCommonLabels": true,
+          "wrapLogMessage": true,
+          "prettifyLogMessage": true,
+          "enableLogDetails": true,
+          "dedupStrategy": "exact",
+          "sortOrder": "Descending"
+        },
+        "gridPos": {
+          "h": 12,
+          "w": 12,
+          "x": 0,
+          "y": 20
+        }
+      },
+      {
+        "id": 5,
+        "title": "Log Patterns Analysis",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "sum(count_over_time({job=~\"$job\"} |~ \"$search\" [$__range])) by (level, component)",
+            "legendFormat": "",
+            "refId": "A",
+            "instant": true
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "displayMode": "color-text"
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 100
+                },
+                {
+                  "color": "orange",
+                  "value": 500
+                },
+                {
+                  "color": "red",
+                  "value": 1000
+                }
+              ]
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "level"
+              },
+              "properties": [
+                {
+                  "id": "custom.displayMode",
+                  "value": "color-background"
+                },
+                {
+                  "id": "mappings",
+                  "value": [
+                    {
+                      "options": {
+                        "ERROR": {
+                          "color": "red",
+                          "index": 0
+                        },
+                        "WARN": {
+                          "color": "orange",
+                          "index": 1
+                        },
+                        "INFO": {
+                          "color": "blue",
+                          "index": 2
+                        },
+                        "DEBUG": {
+                          "color": "gray",
+                          "index": 3
+                        }
+                      },
+                      "type": "value"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 20
+        }
+      },
+      {
+        "id": 6,
+        "title": "Security Events",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{component=\"keycloak\"} |~ \"authentication.*failed|login.*failed|unauthorized|forbidden\" | line_format \"🔒 SECURITY: {{.message}}\"",
+            "legendFormat": "",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showTime": true,
+          "showLabels": false,
+          "showCommonLabels": false,
+          "wrapLogMessage": true,
+          "prettifyLogMessage": true,
+          "enableLogDetails": true,
+          "dedupStrategy": "none",
+          "sortOrder": "Descending"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 28
+        }
+      },
+      {
+        "id": 7,
+        "title": "Performance Issues",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{message=~\"timeout|slow|latency.*high|OutOfMemory|GC.*overhead\"} |~ \"$search\" | line_format \"⚡ PERF: [{{.component}}] {{.message}}\"",
+            "legendFormat": "",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showTime": true,
+          "showLabels": false,
+          "showCommonLabels": false,
+          "wrapLogMessage": true,
+          "prettifyLogMessage": true,
+          "enableLogDetails": true,
+          "dedupStrategy": "none",
+          "sortOrder": "Descending"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 28
+        }
+      },
+      {
+        "id": 8,
+        "title": "Business Logic Errors",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{component=\"scoring-api\", message=~\"business.*error|validation.*failed|constraint.*violation\"} | line_format \"💼 BUSINESS: {{.message}}\"",
+            "legendFormat": "",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showTime": true,
+          "showLabels": false,
+          "showCommonLabels": false,
+          "wrapLogMessage": true,
+          "prettifyLogMessage": true,
+          "enableLogDetails": true,
+          "dedupStrategy": "none",
+          "sortOrder": "Descending"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 36
+        }
+      },
+      {
+        "id": 9,
+        "title": "Infrastructure Issues",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{component=~\"kafka|postgresql|redis\", level=~\"ERROR|WARN\"} |~ \"$search\" | line_format \"🏗️ INFRA: [{{.component}}] {{.message}}\"",
+            "legendFormat": "",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showTime": true,
+          "showLabels": false,
+          "showCommonLabels": false,
+          "wrapLogMessage": true,
+          "prettifyLogMessage": true,
+          "enableLogDetails": true,
+          "dedupStrategy": "none",
+          "sortOrder": "Descending"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 36
+        }
+      },
+      {
+        "id": 10,
+        "title": "LogQL Query Builder",
+        "type": "text",
+        "options": {
+          "content": "# 🔍 Requêtes LogQL Utiles\n\n## Recherche par niveau\n```\n{level=\"ERROR\"}\n{level=~\"WARN|ERROR\"}\n```\n\n## Recherche par composant\n```\n{component=\"scoring-api\"}\n{component=~\"kafka|postgresql\"}\n```\n\n## Recherche temporelle\n```\n{component=\"scoring-api\"} |= \"timeout\" | json\n```\n\n## Agrégation\n```\nsum(rate({level=\"ERROR\"}[5m])) by (component)\n```\n\n## Patterns complexes\n```\n{component=\"scoring-api\"} |~ \"user.*123.*error\" | json | user_id=`\"{{.user_id}}\"`\n```\n\n## Analyse de performance\n```\n{component=\"scoring-api\"} | json | latency > 5000\n```\n\n## Sécurité\n```\n{component=\"keycloak\"} |~ \"authentication.*failed\"\n```",
+          "mode": "markdown"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 44
+        }
+      },
+      {
+        "id": 11,
+        "title": "Log Metrics",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(rate({job=~\"$job\"}[$__interval]))",
+            "legendFormat": "Total Log Rate",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate({level=\"ERROR\", job=~\"$job\"}[$__interval]))",
+            "legendFormat": "Error Rate",
+            "refId": "B"
+          },
+          {
+            "expr": "count(sum(rate({job=~\"$job\"}[$__interval])) by (component))",
+            "legendFormat": "Active Components",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 10
+                },
+                {
+                  "color": "red",
+                  "value": 50
+                }
+              ]
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Error Rate"
+              },
+              "properties": [
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      },
+                      {
+                        "color": "yellow",
+                        "value": 1
+                      },
+                      {
+                        "color": "red",
+                        "value": 5
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 44
+        }
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": [
+        "5s",
+        "10s",
+        "30s",
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "1d"
+      ]
+    },
+    "templating": {
+      "list": [
+        {
+          "current": {
+            "selected": false,
+            "text": "All",
+            "value": ".*"
+          },
+          "description": null,
+          "error": null,
+          "hide": 0,
+          "includeAll": true,
+          "label": "Job",
+          "multi": true,
+          "name": "job",
+          "options": [],
+          "query": "label_values(job)",
+          "refresh": 1,
+          "regex": "",
+          "skipUrlSync": false,
+          "sort": 0,
+          "type": "query"
+        },
+        {
+          "current": {
+            "selected": false,
+            "text": "All",
+            "value": "$__all"
+          },
+          "description": null,
+          "error": null,
+          "hide": 0,
+          "includeAll": true,
+          "label": "Component",
+          "multi": true,
+          "name": "component",
+          "options": [],
+          "query": "label_values(component)",
+          "refresh": 1,
+          "regex": "",
+          "skipUrlSync": false,
+          "sort": 0,
+          "type": "query"
+        },
+        {
+          "current": {
+            "selected": false,
+            "text": "",
+            "value": ""
+          },
+          "description": null,
+          "error": null,
+          "hide": 0,
+          "label": "Search",
+          "multi": false,
+          "name": "search",
+          "options": [],
+          "query": "",
+          "refresh": 1,
+          "regex": "",
+          "skipUrlSync": false,
+          "sort": 0,
+          "type": "textbox"
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "builtIn": 1,
+          "datasource": "-- Grafana --",
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "type": "dashboard"
+        }
+      ]
+    },
+    "refresh": "30s",
+    "schemaVersion": 27,
+    "version": 0,
+    "links": [
+      {
+        "title": "Loki Documentation",
+        "type": "link",
+        "url": "https://grafana.com/docs/loki/latest/"
+      },
+      {
+        "title": "LogQL Reference",
+        "type": "link",
+        "url": "https://grafana.com/docs/loki/latest/logql/"
+      }
+    ]
+  }
+}
