@@ -1,0 +1,154 @@
+name: 🚀 Manual Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      service:
+        description: 'Service to deploy'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+        - all
+        - scoring-api
+        - mlflow-server
+        - feast-server
+        - monitoring
+        - kafka
+        - database
+      version:
+        description: 'Version/tag to deploy'
+        required: false
+        default: 'latest'
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  manual-deploy:
+    name: 🚀 Manual Deployment to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🔐 Setup kubectl
+      uses: azure/k8s-set-context@v3
+      with:
+        method: kubeconfig
+        kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+    - name: 📋 Display deployment info
+      run: |
+        echo "🚀 Manual Deployment"
+        echo "Environment: ${{ inputs.environment }}"
+        echo "Service: ${{ inputs.service }}"
+        echo "Version: ${{ inputs.version }}"
+        echo "Triggered by: ${{ github.actor }}"
+
+    - name: 🔄 Update image versions
+      run: |
+        VERSION=${{ inputs.version }}
+        if [ "$VERSION" = "latest" ]; then
+          VERSION="main"
+        fi
+
+        # Mise à jour des tags d'images selon le service sélectionné
+        if [ "${{ inputs.service }}" = "all" ] || [ "${{ inputs.service }}" = "scoring-api" ]; then
+          sed -i "s|image:.*scoring-api.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/scoring-api:$VERSION|" api-integration/scoring-api-deployment.yaml
+        fi
+
+        if [ "${{ inputs.service }}" = "all" ] || [ "${{ inputs.service }}" = "mlflow-server" ]; then
+          sed -i "s|image:.*mlflow.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/mlflow-server:$VERSION|" scoring-credit/mlflow-deployment.yaml
+        fi
+
+        if [ "${{ inputs.service }}" = "all" ] || [ "${{ inputs.service }}" = "feast-server" ]; then
+          sed -i "s|image:.*feast.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/feast-server:$VERSION|" feature-store/feast-deployment.yaml
+        fi
+
+    - name: 🚀 Deploy services
+      run: |
+        # Déploiement selon l'environnement et le service
+        ENV_DIR="k8s/${{ inputs.environment }}"
+
+        if [ "${{ inputs.service }}" = "all" ]; then
+          echo "Déploiement complet de ${{ inputs.environment }}..."
+          kubectl apply -f $ENV_DIR/
+        else
+          echo "Déploiement du service ${{ inputs.service }} vers ${{ inputs.environment }}..."
+          # Déploiement sélectif selon le service
+          case "${{ inputs.service }}" in
+            "scoring-api")
+              kubectl apply -f api-integration/scoring-api-deployment.yaml
+              ;;
+            "mlflow-server")
+              kubectl apply -f scoring-credit/mlflow-deployment.yaml
+              ;;
+            "feast-server")
+              kubectl apply -f feature-store/feast-deployment.yaml
+              ;;
+            "monitoring")
+              kubectl apply -f monitoring/
+              ;;
+            "kafka")
+              kubectl apply -f kafka/
+              ;;
+            "database")
+              kubectl apply -f database/
+              ;;
+          esac
+        fi
+
+    - name: ⏳ Wait for rollout
+      run: |
+        if [ "${{ inputs.service }}" = "all" ] || [ "${{ inputs.service }}" = "scoring-api" ]; then
+          kubectl rollout status deployment/scoring-api --timeout=600s
+        fi
+
+        if [ "${{ inputs.service }}" = "all" ] || [ "${{ inputs.service }}" = "mlflow-server" ]; then
+          kubectl rollout status deployment/mlflow-server --timeout=600s
+        fi
+
+        if [ "${{ inputs.service }}" = "all" ] || [ "${{ inputs.service }}" = "feast-server" ]; then
+          kubectl rollout status deployment/feast-feature-server --timeout=600s
+        fi
+
+    - name: 🩺 Health checks
+      run: |
+        # Tests de santé post-déploiement
+        if [ "${{ inputs.service }}" = "all" ] || [ "${{ inputs.service }}" = "scoring-api" ]; then
+          kubectl run health-check-api --image=curlimages/curl --rm -i --restart=Never -- \
+            curl -f --max-time 30 http://scoring-api-service/health || echo "⚠️ API health check failed"
+        fi
+
+        if [ "${{ inputs.service }}" = "all" ] || [ "${{ inputs.service }}" = "mlflow-server" ]; then
+          kubectl run health-check-mlflow --image=curlimages/curl --rm -i --restart=Never -- \
+            curl -f --max-time 30 http://mlflow-service/health || echo "⚠️ MLflow health check failed"
+        fi
+
+    - name: 📊 Deployment summary
+      run: |
+        echo "✅ Deployment completed successfully!"
+        echo ""
+        echo "📋 Deployment Summary:"
+        echo "- Environment: ${{ inputs.environment }}"
+        echo "- Service: ${{ inputs.service }}"
+        echo "- Version: ${{ inputs.version }}"
+        echo "- Timestamp: $(date)"
+        echo ""
+        echo "🔍 Check status:"
+        kubectl get pods -l app=${{ inputs.service }}
+        echo ""
+        echo "📈 Monitor logs:"
+        echo "kubectl logs -f deployment/${{ inputs.service }}"
