@@ -1,2 +1,89 @@
-Z-Doc/
+#############################
+#          GLOBAL           #
+#############################
+
+# Logs
+*.log
+*.pid
+*.sock
+
+# Environnements
+.env
+.env.*
+__pycache__/
+*.pyc
+*.pyo
+
+# Bases de données locales
+*.db
+*.sqlite
+
+# Données, artefacts et datasets
+datasets/
+data/
+artifacts/
+models/
+*.csv
+*.parquet
+
+#############################
+#        PYTHON / API       #
+#############################
+
+# Caches Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+#############################
+#         AIRFLOW           #
+#############################
+
+# Airflow auto-generated files
+airflow/logs/
+airflow/plugins/
+airflow/temp/
+airflow/*.db
+airflow/airflow.cfg
+
+# CI/CD Airflow paths (in your repo structure)
+ci_cd/airflow/logs/
+ci_cd/airflow/plugins/
+ci_cd/airflow/temp/
+ci_cd/airflow/airflow.db
+
+#############################
+#          MLFLOW           #
+#############################
+
+mlruns/
+mlflow/
+ci_cd/mlflow/
+
+#############################
+#         DOCKER            #
+#############################
+
+docker/data/
+
+#############################
+#        FRONTEND JS        #
+#############################
+
+# Node modules & caches
 node_modules/
+.cache/
+dist/
+build/
+.next/
+*.lock
+
+# JS error logs
+npm-debug.log
+yarn-error.log
+
+#############################
+#        PROJECT DOCS       #
+#############################
+
+Z-Doc/
