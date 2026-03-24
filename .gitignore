@@ -87,3 +87,11 @@ yarn-error.log
 #############################
 
 Z-Doc/
+
+
+# Ignorer tout node_modules
+node_modules/
+# Ignorer les caches Babel
+node_modules/.cache/
+# Ignorer les fichiers pack volumineux
+*.pack
