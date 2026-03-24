@@ -2,11 +2,11 @@
 
 ## 📌 Contexte
 Ce projet vise à concevoir et déployer une **plateforme de scoring automatisé** capable de :
-- ✅ Évaluer le **risque de crédit** (scoring prospects).  
-- 🔍 Détecter les **anomalies** et comportements atypiques dans les transactions.  
-- 🛡️ Détecter les **fraudes en temps réel** (streaming & ML).  
-- 💰 Anticiper l’approvisionnement des distributeurs automatiques (logistique).  
-- 📊 Automatiser la génération de **rapports** et la **gestion de la conformité** (KYC / AML).  
+-  Évaluer le **risque de crédit** (scoring prospects).  
+-  Détecter les **anomalies** et comportements atypiques dans les transactions.  
+-  Détecter les **fraudes en temps réel** (streaming & ML).  
+-  Anticiper l’approvisionnement des distributeurs automatiques (logistique).  
+-  Automatiser la génération de **rapports** et la **gestion de la conformité** (KYC / AML).  
 - 💬 Intégrer un **chatbot intelligent** pour interagir avec la plateforme.  
 
 🎯 **Objectif** : disposer d’un système **scalable, automatisé, traçable et conforme** aux bonnes pratiques **MLOps**.
@@ -124,11 +124,11 @@ flowchart TB
 
 ## 🚀 User Stories (extraits)
 
-- 👨‍💻 *En tant que Data Engineer*, je veux connecter les sources (CRM, transactions, API) pour centraliser les données.  
-- 📊 *En tant qu’analyste*, je veux des pipelines fiables pour ingérer et transformer les données.  
-- 🤖 *En tant que Data Scientist*, je veux entraîner un modèle de scoring crédit pour évaluer le risque.  
-- 🧑‍💻 *En tant que développeur*, je veux exposer les scores via une API REST.  
-- 🗣️ *En tant qu’utilisateur*, je veux interagir avec la plateforme via un tableau de bord et un chatbot.  
+-  *En tant que Data Engineer*, je veux connecter les sources (CRM, transactions, API) pour centraliser les données.  
+-  *En tant qu’analyste*, je veux des pipelines fiables pour ingérer et transformer les données.  
+-  *En tant que Data Scientist*, je veux entraîner un modèle de scoring crédit pour évaluer le risque.  
+-  *En tant que développeur*, je veux exposer les scores via une API REST.  
+-  *En tant qu’utilisateur*, je veux interagir avec la plateforme via un tableau de bord et un chatbot.  
 - 🛡️ *En tant que responsable conformité*, je veux que le système respecte GDPR/KYC.  
 - 🔍 *En tant qu’admin*, je veux surveiller la performance des modèles et APIs.  
 
@@ -150,34 +150,34 @@ gantt
     title 🏗️ Roadmap - Plateforme de Scoring Automatisée avec MLOps
     dateFormat  YYYY-MM-DD
     section Phase 1 - Cadrage & Setup
-    📋 Spécifications fonctionnelles & techniques       :done,   p1a, 2025-09-01, 10d
-    🧱 Mise en place de l’environnement Dev / Cloud     :active, p1b, after p1a, 4d
+     Spécifications fonctionnelles & techniques       :done,   p1a, 2025-09-01, 10d
+     Mise en place de l’environnement Dev / Cloud     :active, p1b, after p1a, 4d
     🔑 Sécurisation (Keycloak / Vault)                  : p1c, after p1b, 4d
 
     section Phase 2 - MVP Scoring Crédit
-    🧠 Modélisation Scoring Crédit (ML)                 : p2a, 2025-09-20, 14d
-    🚀 API REST de Scoring (FastAPI)                   : p2b, after p2a, 7d
-    🧩 Intégration MLflow + Feature Store               : p2c, after p2b, 5d
+     Modélisation Scoring Crédit (ML)                 : p2a, 2025-09-20, 14d
+     API REST de Scoring (FastAPI)                   : p2b, after p2a, 7d
+     Intégration MLflow + Feature Store               : p2c, after p2b, 5d
 
     section Phase 3 - Détection Anomalies & Fraudes
-    ⚡ Pipelines Temps Réel (Kafka + Spark Streaming)   : p3a, 2025-10-10, 10d
-    🤖 Détection Anomalies & Fraudes (Autoencoder + RF) : p3b, after p3a, 10d
+     Pipelines Temps Réel (Kafka + Spark Streaming)   : p3a, 2025-10-10, 10d
+     Détection Anomalies & Fraudes (Autoencoder + RF) : p3b, after p3a, 10d
     🔬 Tests de charge et latence                      : p3c, after p3b, 5d
 
     section Phase 4 - Automatisation & Conformité
-    🧾 Génération Rapports Automatisés (Airflow + PDFKit): p4a, 2025-11-01, 10d
+     Génération Rapports Automatisés (Airflow + PDFKit): p4a, 2025-11-01, 10d
     🔐 Implémentation RBAC / KYC / AML                 : p4b, after p4a, 10d
-    📊 Audit & Traçabilité MLflow + Evidently           : p4c, after p4b, 5d
+     Audit & Traçabilité MLflow + Evidently           : p4c, after p4b, 5d
 
     section Phase 5 - Chatbot & Dashboards
     💬 Intégration Chatbot (Slack / Teams)              : p5a, 2025-11-25, 7d
-    📈 Dashboard (Grafana / Superset)                   : p5b, after p5a, 7d
-    🧩 API & Front-End Unifiés                          : p5c, after p5b, 5d
+     Dashboard (Grafana / Superset)                   : p5b, after p5a, 7d
+     API & Front-End Unifiés                          : p5c, after p5b, 5d
 
     section Phase 6 - Optimisation & Scalabilité (Continu)
-    ☸️ CI/CD (GitLab + ArgoCD)                          : p6a, 2025-12-10, 10d
-    🧠 Monitoring Modèles & Drift (Evidently / Prometheus): p6b, after p6a, 10d
-    🔁 Scalabilité Kubernetes + Helm                    : p6c, after p6b, 15d
+    CI/CD (GitLab + ArgoCD)                          : p6a, 2025-12-10, 10d
+     Monitoring Modèles & Drift (Evidently / Prometheus): p6b, after p6a, 10d
+     Scalabilité Kubernetes + Helm                    : p6c, after p6b, 15d
     ♻️ Maintenance & Documentation Continue             : p6d, after p6c, 30d
 
 ```
